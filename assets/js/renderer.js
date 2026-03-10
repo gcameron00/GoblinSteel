@@ -3,72 +3,118 @@
 (function () {
   const T = GS.TILE_SIZE;
 
+  // Running-bond masonry constants (in pixels)
+  const BRICK_W = 14;
+  const BRICK_H = 13;
+  const PERIOD  = 16;  // brick width + 2px mortar gap
+
   // -------------------------------------------------------------------------
-  // Tile drawing
+  // Helper: draw one beveled stone block (arcade-style bevel)
+  // -------------------------------------------------------------------------
+  function bevelRect(ctx, x, y, w, h) {
+    if (w <= 0 || h <= 0) return;
+
+    ctx.fillStyle = GS.C.WALL_STONE;
+    ctx.fillRect(x, y, w, h);
+
+    if (w > 1 && h > 1) {
+      ctx.fillStyle = GS.C.WALL_HIGHLIGHT;
+      ctx.fillRect(x,         y,         w, 1);   // top edge
+      ctx.fillRect(x,         y,         1, h);   // left edge
+
+      ctx.fillStyle = GS.C.WALL_SHADOW;
+      ctx.fillRect(x,         y + h - 1, w, 1);  // bottom edge
+      ctx.fillRect(x + w - 1, y,         1, h);  // right edge
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Tiles
   // -------------------------------------------------------------------------
   function drawTiles(ctx) {
-    const cam  = GS.camera;
-    const map  = GS.map;
-    const cols = GS.MAP_COLS;
-    const rows = GS.MAP_ROWS;
+    const cam = GS.camera;
+    const map = GS.map;
 
-    const c0 = Math.max(0,        Math.floor(cam.x / T));
-    const c1 = Math.min(cols - 1, Math.ceil((cam.x + GS.VIEW_W) / T));
-    const r0 = Math.max(0,        Math.floor(cam.y / T));
-    const r1 = Math.min(rows - 1, Math.ceil((cam.y + GS.VIEW_H) / T));
+    const c0 = Math.max(0,              Math.floor(cam.x / T));
+    const c1 = Math.min(GS.MAP_COLS-1,  Math.ceil((cam.x + GS.VIEW_W) / T));
+    const r0 = Math.max(0,              Math.floor(cam.y / T));
+    const r1 = Math.min(GS.MAP_ROWS-1,  Math.ceil((cam.y + GS.VIEW_H) / T));
 
     for (let r = r0; r <= r1; r++) {
       for (let c = c0; c <= c1; c++) {
-        const sx = Math.round(c * T - cam.x);
-        const sy = Math.round(r * T - cam.y) + GS.HUD_H;
+        const sx       = Math.round(c * T - cam.x);
+        const sy       = Math.round(r * T - cam.y) + GS.HUD_H;
+        const tileLeft = c * T;
 
         if (map.isWall(c, r)) {
-          // --- Base stone fill ---
-          ctx.fillStyle = GS.C.WALL;
+          // --- Mortar base ---
+          ctx.fillStyle = GS.C.WALL_MORTAR;
           ctx.fillRect(sx, sy, T, T);
 
-          // --- Masonry: mortar lines forming a running-bond brick pattern ---
-          ctx.fillStyle = GS.C.WALL_MORTAR;
+          // --- Running-bond stone blocks, continuous across tiles ---
+          // Alternate the brick offset every tile row for a true running bond
+          const rowOdd = r % 2;
 
-          // Horizontal mortar at midpoint
-          ctx.fillRect(sx, sy + 15, T, 2);
+          // TOP ROW of bricks (y: sy+1, height: BRICK_H)
+          const offTop   = rowOdd * 8;
+          const startTop = Math.floor((tileLeft - offTop) / PERIOD) * PERIOD + offTop;
+          for (let bx = startTop; bx < tileLeft + T; bx += PERIOD) {
+            const lx = Math.max(bx, tileLeft);
+            const rx = Math.min(bx + BRICK_W, tileLeft + T);
+            bevelRect(ctx, sx + (lx - tileLeft), sy + 1, rx - lx, BRICK_H);
+          }
 
-          // Vertical seams — offset alternates every row for brick bond
-          const topSeam = (r % 2 === 0) ? 16 : 8;
-          const botSeam = (r % 2 === 0) ? 8  : 24;
-          ctx.fillRect(sx + topSeam - 1, sy,      2, 15);
-          ctx.fillRect(sx + botSeam - 1, sy + 17, 2, 15);
+          // BOTTOM ROW of bricks (y: sy+17, height: BRICK_H)
+          const offBot   = (1 - rowOdd) * 8;
+          const startBot = Math.floor((tileLeft - offBot) / PERIOD) * PERIOD + offBot;
+          for (let bx = startBot; bx < tileLeft + T; bx += PERIOD) {
+            const lx = Math.max(bx, tileLeft);
+            const rx = Math.min(bx + BRICK_W, tileLeft + T);
+            bevelRect(ctx, sx + (lx - tileLeft), sy + 17, rx - lx, BRICK_H);
+          }
 
-          // --- Top & left corner highlight (simulated NW light source) ---
-          ctx.fillStyle = GS.C.WALL_EDGE;
-          ctx.fillRect(sx, sy, T, 1);
-          ctx.fillRect(sx, sy, 1, T);
-
-          // --- South wall face: warmer band when floor lies directly below ---
+          // --- South wall face: visible stone face when floor is below ---
           if (!map.isWall(c, r + 1)) {
             ctx.fillStyle = GS.C.WALL_FACE;
-            ctx.fillRect(sx, sy + T - 6, T, 4);
+            ctx.fillRect(sx, sy + T - 7, T, 5);
             ctx.fillStyle = GS.C.WALL_FACE2;
             ctx.fillRect(sx, sy + T - 2, T, 2);
           }
+
         } else {
-          // --- Floor ---
-          const alt = (c + r) % 2 === 0;
-          ctx.fillStyle = alt ? GS.C.FLOOR : GS.C.FLOOR_ALT;
+          // --- Floor grout base ---
+          ctx.fillStyle = GS.C.FLOOR_MORTAR;
           ctx.fillRect(sx, sy, T, T);
 
-          // --- Shadow cast by wall to the north ---
-          if (map.isWall(c, r - 1)) {
-            ctx.fillStyle = 'rgba(0,0,0,0.55)';
-            ctx.fillRect(sx, sy, T, 7);
-            ctx.fillStyle = 'rgba(0,0,0,0.22)';
-            ctx.fillRect(sx, sy + 7, T, 5);
+          // --- Stone tile interior with deterministic colour variation ---
+          const hash = (c * 17 + r * 31) % 6;
+          ctx.fillStyle = hash < 2 ? GS.C.FLOOR_STONE  :
+                          hash < 4 ? GS.C.FLOOR_STONE2 :
+                                     GS.C.FLOOR_STONE3;
+          ctx.fillRect(sx + 1, sy + 1, T - 2, T - 2);
+
+          // --- Occasional floor detail (cracks/grain) ---
+          if (hash === 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(sx + 6,  sy + 14, 14, 1);
+            ctx.fillRect(sx + 18, sy + 15,  7, 1);
+          } else if (hash === 3) {
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillRect(sx + 17, sy + 5, 1, 12);
           }
 
-          // --- Shadow cast by wall to the west ---
+          // --- Shadow from wall to the north ---
+          if (map.isWall(c, r - 1)) {
+            ctx.fillStyle = 'rgba(0,0,0,0.65)';
+            ctx.fillRect(sx, sy, T, 7);
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillRect(sx, sy + 7, T, 6);
+          }
+
+          // --- Shadow from wall to the west ---
           if (map.isWall(c - 1, r)) {
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.fillRect(sx, sy, 5, T);
+            ctx.fillStyle = 'rgba(0,0,0,0.38)';
+            ctx.fillRect(sx, sy, 6, T);
           }
         }
       }
@@ -76,7 +122,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // Elf sprite  (top-down pixel-art style, drawn with canvas primitives)
+  // Elf sprite
   // -------------------------------------------------------------------------
   function drawElf(ctx) {
     const p   = GS.player;
@@ -88,107 +134,134 @@
     ctx.save();
     ctx.translate(sx, sy);
 
-    const f = p.facing;
+    const f     = p.facing;
     const frame = p.frame;
 
-    // --- Shadow ---
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    // --- Ground shadow ---
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
-    ctx.ellipse(0, 9, 9, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(1, 11, 12, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // --- Legs (two-frame walk cycle) ---
-    ctx.fillStyle = '#3a2a6a';  // dark trousers
+    // --- Boots/legs (peek out below cloak) ---
+    ctx.fillStyle = '#2e1e50';
     if (frame === 0) {
-      // Feet together
-      ctx.fillRect(-3, 5, 3, 6);
-      ctx.fillRect( 1, 5, 3, 6);
+      ctx.fillRect(-3, 10, 3, 6);
+      ctx.fillRect( 1, 10, 3, 6);
     } else {
-      // Feet apart (stride)
-      ctx.fillRect(-4, 4, 3, 7);
-      ctx.fillRect( 2, 6, 3, 5);
+      ctx.fillRect(-4,  9, 3, 7);
+      ctx.fillRect( 2, 11, 3, 5);
     }
 
-    // --- Cloak / body ---
-    ctx.fillStyle = '#2a5e1e';  // forest green
-    ctx.fillRect(-6, -4, 13, 12);
-
-    // Cloak shadow (gives depth)
-    ctx.fillStyle = '#1e4614';
-    ctx.fillRect(-6, 4, 13, 4);
-
-    // Belt
-    ctx.fillStyle = '#7a3a0a';
-    ctx.fillRect(-6, 2, 13, 2);
-
-    // --- Head ---
-    ctx.fillStyle = '#c8905a';   // skin
+    // --- Cloak body (large oval, richly coloured) ---
+    ctx.fillStyle = '#1a5014';
     ctx.beginPath();
-    ctx.arc(0, -10, 6, 0, Math.PI * 2);
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hair
-    ctx.fillStyle = '#5a3a0a';   // dark auburn
+    // Cloak rim highlight (bright arcade green)
+    ctx.strokeStyle = '#38c028';
+    ctx.lineWidth   = 1.5;
     ctx.beginPath();
-    ctx.arc(0, -12, 6, Math.PI, 0);
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cloak centre fold shadow
+    ctx.fillStyle = '#112e0d';
+    ctx.fillRect(-1, -4, 2, 14);
+
+    // --- Belt ---
+    ctx.fillStyle = '#7a3808';
+    ctx.fillRect(-10, 4, 20, 2);
+    // Buckle
+    ctx.fillStyle = '#e8b818';
+    ctx.fillRect(-2, 4, 4, 2);
+
+    // --- Head (skin) ---
+    ctx.fillStyle = '#d09460';
+    ctx.beginPath();
+    ctx.arc(0, -9, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // --- Elf ears (both sides, always visible from above) ---
-    ctx.fillStyle = '#c8905a';
-    // Left ear
-    ctx.beginPath();
-    ctx.moveTo(-5, -12);
-    ctx.lineTo(-11, -9);
-    ctx.lineTo(-5,  -7);
-    ctx.closePath();
-    ctx.fill();
-    // Right ear
-    ctx.beginPath();
-    ctx.moveTo(5,  -12);
-    ctx.lineTo(11, -9);
-    ctx.lineTo(5,  -7);
-    ctx.closePath();
-    ctx.fill();
-
-    // Eyes (two dark pixels)
-    ctx.fillStyle = '#1a0500';
-    ctx.fillRect(-3, -11, 2, 2);
-    ctx.fillRect( 2, -11, 2, 2);
-
-    // --- Bow ---
-    // Position the bow to the leading side based on facing
-    const bowRight = (f === 'right' || f === 'down');
-    const bx = bowRight ? 10 : -10;
-
-    ctx.strokeStyle = '#8a4a0a';
+    // Hood rim (bright green arc framing head)
+    ctx.strokeStyle = '#38c028';
     ctx.lineWidth   = 2;
     ctx.beginPath();
+    ctx.arc(0, -9, 8, -Math.PI * 0.85, 0.1);
+    ctx.stroke();
+
+    // --- Hair ---
+    ctx.fillStyle = '#b07020';
+    ctx.beginPath();
+    ctx.arc(0, -11, 5, Math.PI, 0);
+    ctx.fill();
+
+    // --- Pointed ears ---
+    ctx.fillStyle = '#d09460';
+    ctx.beginPath();
+    ctx.moveTo(-5, -11);
+    ctx.lineTo(-14, -6);
+    ctx.lineTo( -4, -5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo( 5, -11);
+    ctx.lineTo( 14, -6);
+    ctx.lineTo(  4, -5);
+    ctx.closePath();
+    ctx.fill();
+
+    // --- Eyes ---
+    ctx.fillStyle = '#1a0800';
+    ctx.fillRect(-3, -10, 2, 2);
+    ctx.fillRect( 2, -10, 2, 2);
+    // Eye glints (arcade crispness)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-2, -10, 1, 1);
+    ctx.fillRect( 3, -10, 1, 1);
+
+    // --- Bow ---
+    const bowRight = (f === 'right' || f === 'down');
+    const bCx      = bowRight ? 9 : -9;
+    const bArcCx   = bowRight ? bCx - 5 : bCx + 5;
+    const bRad     = 11;
+    const bAngle   = Math.PI * 0.52;
+    const bcy      = -4;
+
+    // Stave
+    ctx.strokeStyle = '#7a3c08';
+    ctx.lineWidth   = 2.5;
+    ctx.beginPath();
     if (bowRight) {
-      ctx.arc(bx - 4, -5, 9, -Math.PI * 0.55, Math.PI * 0.55);
+      ctx.arc(bArcCx, bcy, bRad, -bAngle, bAngle);
     } else {
-      ctx.arc(bx + 4, -5, 9, Math.PI - Math.PI * 0.55, Math.PI + Math.PI * 0.55);
+      ctx.arc(bArcCx, bcy, bRad, Math.PI - bAngle, Math.PI + bAngle);
     }
     ctx.stroke();
 
-    // Bowstring
-    ctx.strokeStyle = '#d8d8b0';
+    // Stave edge highlight
+    ctx.strokeStyle = '#b86418';
     ctx.lineWidth   = 1;
-    const bcy = -5;
-    const brad = 9;
-    const angle = Math.PI * 0.55;
+    ctx.beginPath();
     if (bowRight) {
-      const cx2 = bx - 4;
-      ctx.beginPath();
-      ctx.moveTo(cx2 + Math.cos(-angle) * brad, bcy + Math.sin(-angle) * brad);
-      ctx.lineTo(cx2 + Math.cos( angle) * brad, bcy + Math.sin( angle) * brad);
-      ctx.stroke();
+      ctx.arc(bArcCx - 1, bcy - 1, bRad, -bAngle, bAngle * 0.5);
     } else {
-      const cx2 = bx + 4;
-      ctx.beginPath();
-      ctx.moveTo(cx2 + Math.cos(Math.PI - angle) * brad, bcy + Math.sin(Math.PI - angle) * brad);
-      ctx.lineTo(cx2 + Math.cos(Math.PI + angle) * brad, bcy + Math.sin(Math.PI + angle) * brad);
-      ctx.stroke();
+      ctx.arc(bArcCx + 1, bcy - 1, bRad, Math.PI - bAngle, Math.PI + bAngle * 0.5);
     }
+    ctx.stroke();
+
+    // String
+    ctx.strokeStyle = '#e0e0b8';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    if (bowRight) {
+      ctx.moveTo(bArcCx + Math.cos(-bAngle) * bRad, bcy + Math.sin(-bAngle) * bRad);
+      ctx.lineTo(bArcCx + Math.cos( bAngle) * bRad, bcy + Math.sin( bAngle) * bRad);
+    } else {
+      ctx.moveTo(bArcCx + Math.cos(Math.PI - bAngle) * bRad, bcy + Math.sin(Math.PI - bAngle) * bRad);
+      ctx.lineTo(bArcCx + Math.cos(Math.PI + bAngle) * bRad, bcy + Math.sin(Math.PI + bAngle) * bRad);
+    }
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -203,44 +276,63 @@
       const a  = GS.arrows[i];
       const sx = Math.round(a.x - cam.x);
       const sy = Math.round(a.y - cam.y) + GS.HUD_H;
-      const horiz = a.vx !== 0;
 
       ctx.save();
       ctx.translate(sx, sy);
 
-      // Shaft (wood)
+      // Shaft
       ctx.fillStyle = '#a0621e';
-      if (horiz) {
+      if (a.vx !== 0) {
         ctx.fillRect(-7, -1, 14, 2);
       } else {
         ctx.fillRect(-1, -7, 2, 14);
       }
 
-      // Arrowhead (metal)
+      // Arrowhead
       ctx.fillStyle = '#c8c8b0';
-      if      (a.vx > 0) { ctx.fillRect( 5, -2, 5, 4); }   // right
-      else if (a.vx < 0) { ctx.fillRect(-10, -2, 5, 4); }  // left
-      else if (a.vy > 0) { ctx.fillRect(-2,  5, 4, 5); }   // down
-      else               { ctx.fillRect(-2, -10, 4, 5); }   // up
+      if      (a.vx > 0) { ctx.fillRect( 5, -2, 5, 4); }
+      else if (a.vx < 0) { ctx.fillRect(-10, -2, 5, 4); }
+      else if (a.vy > 0) { ctx.fillRect(-2,  5, 4, 5); }
+      else               { ctx.fillRect(-2, -10, 4, 5); }
 
-      // Fletching (red feathers at tail)
+      // Fletching
       ctx.fillStyle = '#cc3030';
-      if (a.vx > 0) {
-        ctx.fillRect(-10, -3, 4, 2);
-        ctx.fillRect(-10,  1, 4, 2);
-      } else if (a.vx < 0) {
-        ctx.fillRect(  6, -3, 4, 2);
-        ctx.fillRect(  6,  1, 4, 2);
-      } else if (a.vy > 0) {
-        ctx.fillRect(-3, -10, 2, 4);
-        ctx.fillRect( 1, -10, 2, 4);
-      } else {
-        ctx.fillRect(-3,   6, 2, 4);
-        ctx.fillRect( 1,   6, 2, 4);
-      }
+      if      (a.vx > 0) { ctx.fillRect(-10, -3, 4, 2); ctx.fillRect(-10,  1, 4, 2); }
+      else if (a.vx < 0) { ctx.fillRect(  6, -3, 4, 2); ctx.fillRect(  6,  1, 4, 2); }
+      else if (a.vy > 0) { ctx.fillRect(-3, -10, 2, 4); ctx.fillRect(  1,-10, 2, 4); }
+      else               { ctx.fillRect(-3,   6, 2, 4); ctx.fillRect(  1,  6, 2, 4); }
 
       ctx.restore();
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Torch-light vignette — the biggest single atmosphere upgrade
+  // -------------------------------------------------------------------------
+  function drawLighting(ctx) {
+    const p   = GS.player;
+    const cam = GS.camera;
+
+    const cx = Math.round(p.x - cam.x);
+    const cy = Math.round(p.y - cam.y) + GS.HUD_H;
+
+    // Darkness ring — fades in from about 1/3 of the way out
+    const dark = ctx.createRadialGradient(cx, cy, 75, cx, cy, 305);
+    dark.addColorStop(0,    'rgba(0,0,0,0)');
+    dark.addColorStop(0.30, 'rgba(0,0,0,0)');
+    dark.addColorStop(0.62, 'rgba(0,0,0,0.70)');
+    dark.addColorStop(1,    'rgba(0,0,0,0.96)');
+
+    ctx.fillStyle = dark;
+    ctx.fillRect(0, GS.HUD_H, GS.VIEW_W, GS.VIEW_H);
+
+    // Warm torch glow at the very centre (subtle orange tint)
+    const warm = ctx.createRadialGradient(cx, cy, 0, cx, cy, 90);
+    warm.addColorStop(0, 'rgba(255,140,20,0.07)');
+    warm.addColorStop(1, 'rgba(255,100,0,0)');
+
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, GS.HUD_H, GS.VIEW_W, GS.VIEW_H);
   }
 
   // -------------------------------------------------------------------------
@@ -251,11 +343,10 @@
     const w = GS.VIEW_W;
     const h = GS.HUD_H;
 
-    // Background
     ctx.fillStyle = GS.C.HUD_BG;
     ctx.fillRect(0, 0, w, h);
 
-    // Bottom border line
+    // Border line
     ctx.fillStyle = GS.C.HUD_BORDER;
     ctx.fillRect(0, h - 1, w, 1);
 
@@ -283,28 +374,27 @@
     ctx.fillStyle = GS.C.HP_FULL;
     ctx.fillRect(barX, barY, filled, barH);
 
-    // HP border
     ctx.strokeStyle = '#660000';
     ctx.lineWidth   = 1;
     ctx.strokeRect(barX + 0.5, barY + 0.5, barW - 1, barH - 1);
 
-    // HP numbers
     ctx.fillStyle = GS.C.TEXT_DIM;
     ctx.font      = '10px monospace';
     ctx.fillText(p.hp + '/' + p.maxHp, barX + barW + 6, h / 2);
   }
 
   // -------------------------------------------------------------------------
-  // Public render function
+  // Public render — order matters: tiles → sprites → lighting → HUD
+  // The vignette darkens both tiles and sprites at the edges for atmosphere
   // -------------------------------------------------------------------------
   GS.render = function (ctx) {
-    // Clear full canvas
-    ctx.fillStyle = GS.C.BG;
+    ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, GS.VIEW_W, GS.VIEW_H + GS.HUD_H);
 
     drawTiles(ctx);
     drawElf(ctx);
     drawArrows(ctx);
+    drawLighting(ctx);
     drawHUD(ctx);
   };
 }());

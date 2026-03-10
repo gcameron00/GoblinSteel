@@ -17,20 +17,29 @@ GS.T = {
   WALL:  1,
 };
 
-// Colour palette — retro dungeon
+// Colour palette — arcade dungeon
 GS.C = {
-  BG:           '#000000',
-  FLOOR:        '#1c1208',
-  FLOOR_ALT:    '#18100a',
-  WALL:         '#0a0a1a',
-  WALL_MORTAR:  '#18183a',
-  WALL_EDGE:    '#2a2a4a',
-  WALL_FACE:    '#241a38',  // south-facing wall surface
-  WALL_FACE2:   '#301e48',  // bottom edge of wall face
-  HUD_BG:       '#050510',
-  HUD_BORDER:   '#3a3a6a',
-  HP_FULL:      '#cc2200',
-  HP_EMPTY:     '#2a0500',
-  TEXT_YELLOW:  '#f0e040',
-  TEXT_DIM:     '#888866',
+  BG:             '#000000',
+
+  // Walls — deep blue-purple arcade stone
+  WALL_MORTAR:    '#090720',   // mortar base (darkest)
+  WALL_STONE:     '#161250',   // stone block fill
+  WALL_HIGHLIGHT: '#4040c8',   // beveled top-left edge (bright arcade blue)
+  WALL_SHADOW:    '#050312',   // beveled bottom-right edge
+  WALL_FACE:      '#30183a',   // south-facing wall surface base
+  WALL_FACE2:     '#4a2058',   // south-facing wall surface bottom rim
+
+  // Floor — warm torchlit stone
+  FLOOR_MORTAR:   '#120e05',   // grout between floor tiles
+  FLOOR_STONE:    '#2e1e0c',   // floor tile base
+  FLOOR_STONE2:   '#341e08',   // slight variation
+  FLOOR_STONE3:   '#281808',   // slight variation
+
+  // HUD
+  HUD_BG:         '#04040e',
+  HUD_BORDER:     '#3a3a70',
+  HP_FULL:        '#dd2200',
+  HP_EMPTY:       '#2a0400',
+  TEXT_YELLOW:    '#f8e840',
+  TEXT_DIM:       '#8888aa',
 };
