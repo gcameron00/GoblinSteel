@@ -11,6 +11,7 @@
 
   function update() {
     GS.player.update();
+    GS.arrows.update();
     GS.camera.update();
   }
 

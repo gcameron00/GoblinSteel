@@ -23,19 +23,53 @@
         const sy = Math.round(r * T - cam.y) + GS.HUD_H;
 
         if (map.isWall(c, r)) {
-          // Solid wall block
+          // --- Base stone fill ---
           ctx.fillStyle = GS.C.WALL;
           ctx.fillRect(sx, sy, T, T);
 
-          // Lit top-left edges for faux depth
+          // --- Masonry: mortar lines forming a running-bond brick pattern ---
+          ctx.fillStyle = GS.C.WALL_MORTAR;
+
+          // Horizontal mortar at midpoint
+          ctx.fillRect(sx, sy + 15, T, 2);
+
+          // Vertical seams — offset alternates every row for brick bond
+          const topSeam = (r % 2 === 0) ? 16 : 8;
+          const botSeam = (r % 2 === 0) ? 8  : 24;
+          ctx.fillRect(sx + topSeam - 1, sy,      2, 15);
+          ctx.fillRect(sx + botSeam - 1, sy + 17, 2, 15);
+
+          // --- Top & left corner highlight (simulated NW light source) ---
           ctx.fillStyle = GS.C.WALL_EDGE;
-          ctx.fillRect(sx,     sy,     T, 2);  // top edge
-          ctx.fillRect(sx,     sy,     2, T);  // left edge
+          ctx.fillRect(sx, sy, T, 1);
+          ctx.fillRect(sx, sy, 1, T);
+
+          // --- South wall face: warmer band when floor lies directly below ---
+          if (!map.isWall(c, r + 1)) {
+            ctx.fillStyle = GS.C.WALL_FACE;
+            ctx.fillRect(sx, sy + T - 6, T, 4);
+            ctx.fillStyle = GS.C.WALL_FACE2;
+            ctx.fillRect(sx, sy + T - 2, T, 2);
+          }
         } else {
-          // Floor — subtle checkerboard for texture
+          // --- Floor ---
           const alt = (c + r) % 2 === 0;
           ctx.fillStyle = alt ? GS.C.FLOOR : GS.C.FLOOR_ALT;
           ctx.fillRect(sx, sy, T, T);
+
+          // --- Shadow cast by wall to the north ---
+          if (map.isWall(c, r - 1)) {
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(sx, sy, T, 7);
+            ctx.fillStyle = 'rgba(0,0,0,0.22)';
+            ctx.fillRect(sx, sy + 7, T, 5);
+          }
+
+          // --- Shadow cast by wall to the west ---
+          if (map.isWall(c - 1, r)) {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(sx, sy, 5, T);
+          }
         }
       }
     }
@@ -160,6 +194,56 @@
   }
 
   // -------------------------------------------------------------------------
+  // Arrows in flight
+  // -------------------------------------------------------------------------
+  function drawArrows(ctx) {
+    const cam = GS.camera;
+
+    for (let i = 0; i < GS.arrows.length; i++) {
+      const a  = GS.arrows[i];
+      const sx = Math.round(a.x - cam.x);
+      const sy = Math.round(a.y - cam.y) + GS.HUD_H;
+      const horiz = a.vx !== 0;
+
+      ctx.save();
+      ctx.translate(sx, sy);
+
+      // Shaft (wood)
+      ctx.fillStyle = '#a0621e';
+      if (horiz) {
+        ctx.fillRect(-7, -1, 14, 2);
+      } else {
+        ctx.fillRect(-1, -7, 2, 14);
+      }
+
+      // Arrowhead (metal)
+      ctx.fillStyle = '#c8c8b0';
+      if      (a.vx > 0) { ctx.fillRect( 5, -2, 5, 4); }   // right
+      else if (a.vx < 0) { ctx.fillRect(-10, -2, 5, 4); }  // left
+      else if (a.vy > 0) { ctx.fillRect(-2,  5, 4, 5); }   // down
+      else               { ctx.fillRect(-2, -10, 4, 5); }   // up
+
+      // Fletching (red feathers at tail)
+      ctx.fillStyle = '#cc3030';
+      if (a.vx > 0) {
+        ctx.fillRect(-10, -3, 4, 2);
+        ctx.fillRect(-10,  1, 4, 2);
+      } else if (a.vx < 0) {
+        ctx.fillRect(  6, -3, 4, 2);
+        ctx.fillRect(  6,  1, 4, 2);
+      } else if (a.vy > 0) {
+        ctx.fillRect(-3, -10, 2, 4);
+        ctx.fillRect( 1, -10, 2, 4);
+      } else {
+        ctx.fillRect(-3,   6, 2, 4);
+        ctx.fillRect( 1,   6, 2, 4);
+      }
+
+      ctx.restore();
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // HUD
   // -------------------------------------------------------------------------
   function drawHUD(ctx) {
@@ -220,6 +304,7 @@
 
     drawTiles(ctx);
     drawElf(ctx);
+    drawArrows(ctx);
     drawHUD(ctx);
   };
 }());

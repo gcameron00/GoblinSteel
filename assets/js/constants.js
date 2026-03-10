@@ -20,10 +20,13 @@ GS.T = {
 // Colour palette — retro dungeon
 GS.C = {
   BG:           '#000000',
-  FLOOR:        '#1a120a',
-  FLOOR_ALT:    '#1e150c',
-  WALL:         '#0d0d1f',
+  FLOOR:        '#1c1208',
+  FLOOR_ALT:    '#18100a',
+  WALL:         '#0a0a1a',
+  WALL_MORTAR:  '#18183a',
   WALL_EDGE:    '#2a2a4a',
+  WALL_FACE:    '#241a38',  // south-facing wall surface
+  WALL_FACE2:   '#301e48',  // bottom edge of wall face
   HUD_BG:       '#050510',
   HUD_BORDER:   '#3a3a6a',
   HP_FULL:      '#cc2200',

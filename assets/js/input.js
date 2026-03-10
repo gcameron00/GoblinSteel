@@ -5,6 +5,7 @@ GS.input = {
   down:  false,
   left:  false,
   right: false,
+  fire:  false,
 };
 
 (function () {
@@ -17,18 +18,19 @@ GS.input = {
     s: 'down', S: 'down',
     a: 'left', A: 'left',
     d: 'right', D: 'right',
+    ' ': 'fire', z: 'fire', Z: 'fire',
   };
 
   document.addEventListener('keydown', function (e) {
-    const dir = KEY_MAP[e.key];
-    if (dir) {
-      GS.input[dir] = true;
+    const action = KEY_MAP[e.key];
+    if (action) {
+      GS.input[action] = true;
       e.preventDefault();
     }
   });
 
   document.addEventListener('keyup', function (e) {
-    const dir = KEY_MAP[e.key];
-    if (dir) GS.input[dir] = false;
+    const action = KEY_MAP[e.key];
+    if (action) GS.input[action] = false;
   });
 }());
