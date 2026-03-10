@@ -9,7 +9,17 @@
 
   ctx.imageSmoothingEnabled = false;
 
+  // Initialise title/select system
+  GS.screen.init(canvas);
+
+  // Prime camera position so game starts correctly
+  GS.camera.update();
+
   function update() {
+    if (GS.screen.phase() !== 'game') {
+      GS.screen.update();
+      return;
+    }
     GS.player.update();
     GS.arrows.update();
     GS.goblins.update();
@@ -18,12 +28,13 @@
 
   function loop() {
     update();
-    GS.render(ctx);
+    if (GS.screen.phase() !== 'game') {
+      GS.screen.render(ctx);
+    } else {
+      GS.render(ctx);
+    }
     requestAnimationFrame(loop);
   }
-
-  // Kick off the camera so it starts centred on the player
-  GS.camera.update();
 
   loop();
 }());
