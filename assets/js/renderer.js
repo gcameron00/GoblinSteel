@@ -122,6 +122,120 @@
   }
 
   // -------------------------------------------------------------------------
+  // Goblin sprites
+  // -------------------------------------------------------------------------
+  function drawGoblins(ctx) {
+    const cam = GS.camera;
+    const gs  = GS.goblins;
+
+    for (let i = 0; i < gs.length; i++) {
+      const g  = gs[i];
+      const sx = Math.round(g.x - cam.x);
+      const sy = Math.round(g.y - cam.y) + GS.HUD_H;
+
+      ctx.save();
+      ctx.translate(sx, sy);
+
+      // Hit-flash: overlay white when struck
+      const flashing = g.hitFlash > 0;
+
+      // --- Shadow ---
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath();
+      ctx.ellipse(1, 9, 9, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // --- Legs ---
+      ctx.fillStyle = flashing ? '#ffffff' : '#2a1e08';
+      ctx.fillRect(-3, 7, 3, 5);
+      ctx.fillRect( 1, 7, 3, 5);
+
+      // --- Body (squat, hunched) ---
+      ctx.fillStyle = flashing ? '#ffffff' : '#3a5a18';
+      ctx.beginPath();
+      ctx.ellipse(0, 1, 9, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ragged tunic seam (darker stripe)
+      if (!flashing) {
+        ctx.fillStyle = '#2a4010';
+        ctx.fillRect(-1, -6, 2, 12);
+      }
+
+      // --- Head (large, round, grotesque) ---
+      ctx.fillStyle = flashing ? '#ffffff' : '#4a7a1e';
+      ctx.beginPath();
+      ctx.arc(0, -8, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // --- Big bat ears ---
+      ctx.fillStyle = flashing ? '#ffffff' : '#3a6018';
+      ctx.beginPath();
+      ctx.moveTo(-5, -12);
+      ctx.lineTo(-12, -18);
+      ctx.lineTo(-7,  -7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo( 5, -12);
+      ctx.lineTo( 12, -18);
+      ctx.lineTo(  7,  -7);
+      ctx.closePath();
+      ctx.fill();
+
+      // --- Eyes — red, glowing (brighter when aggro) ---
+      const eyeColor = g.state === 'aggro' ? '#ff2020' : '#cc1010';
+      ctx.fillStyle = eyeColor;
+      ctx.fillRect(-3, -10, 2, 3);
+      ctx.fillRect( 2, -10, 2, 3);
+
+      // Eye glint
+      ctx.fillStyle = '#ff9090';
+      ctx.fillRect(-3, -10, 1, 1);
+      ctx.fillRect( 2, -10, 1, 1);
+
+      // Nostrils
+      if (!flashing) {
+        ctx.fillStyle = '#2a4a08';
+        ctx.fillRect(-2, -6, 1, 1);
+        ctx.fillRect( 2, -6, 1, 1);
+      }
+
+      // --- Club weapon (stubby, to the side based on facing) ---
+      if (!flashing) {
+        const clubRight = (g.facing === 'right' || g.facing === 'down');
+        const cx2       = clubRight ? 10 : -10;
+
+        // Handle
+        ctx.fillStyle = '#6a3a08';
+        ctx.fillRect(clubRight ? 8 : -11, -2, 3, 9);
+
+        // Head of club
+        ctx.fillStyle = '#4a2a04';
+        ctx.fillRect(clubRight ? 7 : -12, -5, 5, 5);
+        // Club highlight
+        ctx.fillStyle = '#8a5010';
+        ctx.fillRect(clubRight ? 7 : -12, -5, 5, 1);
+        ctx.fillRect(clubRight ? 7 : -12, -5, 1, 5);
+      }
+
+      // --- Health bar (shown when damaged) ---
+      if (g.hp < g.maxHp) {
+        const bw  = 18;
+        const bh  = 3;
+        const bx  = -bw / 2;
+        const by  = -22;
+        ctx.fillStyle = '#440000';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = '#cc2200';
+        ctx.fillRect(bx, by, Math.round((g.hp / g.maxHp) * bw), bh);
+      }
+
+      ctx.restore();
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Elf sprite
   // -------------------------------------------------------------------------
   function drawElf(ctx) {
@@ -392,6 +506,7 @@
     ctx.fillRect(0, 0, GS.VIEW_W, GS.VIEW_H + GS.HUD_H);
 
     drawTiles(ctx);
+    drawGoblins(ctx);
     drawElf(ctx);
     drawArrows(ctx);
     drawLighting(ctx);

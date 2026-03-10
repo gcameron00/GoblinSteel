@@ -12,6 +12,7 @@
   function update() {
     GS.player.update();
     GS.arrows.update();
+    GS.goblins.update();
     GS.camera.update();
   }
 
