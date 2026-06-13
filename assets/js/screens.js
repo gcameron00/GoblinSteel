@@ -114,7 +114,8 @@
 
   function resetGame() {
     GS.arrows.splice(0, GS.arrows.length);
-    GS.goblins.reset();
+    GS.map.rebuild();
+    GS.enemies.reset();
     GS.combat.reset();
     phase         = 'select';
     cardAlpha     = 1;

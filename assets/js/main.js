@@ -24,10 +24,11 @@
     GS.player.update();
     GS.combat.update();
     GS.arrows.update();
-    GS.goblins.update();
+    GS.enemies.update();
     GS.camera.update();
 
-    if (GS.goblins.length === 0)  GS.screen.win();
+    // Win when the boss is dead
+    if (GS.enemies.length === 0 || !GS.enemies.some(e => e.boss)) GS.screen.win();
     if (GS.player.hp   <= 0)      GS.screen.dead();
   }
 

@@ -22,9 +22,10 @@
   };
 
   GS.player.reset = function () {
-    const cls   = GS.selectedClass;
-    GS.player.x       = 5.5 * T;
-    GS.player.y       = 5.0 * T;
+    const cls  = GS.selectedClass;
+    const tile = GS.map.spawnTile;
+    GS.player.x       = tile ? (tile.col + 0.5) * T : 5.5 * T;
+    GS.player.y       = tile ? (tile.row + 0.5) * T : 5.0 * T;
     GS.player.facing  = 'down';
     GS.player.hp      = cls ? cls.maxHp : 80;
     GS.player.maxHp   = cls ? cls.maxHp : 80;

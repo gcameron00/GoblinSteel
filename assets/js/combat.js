@@ -71,7 +71,7 @@
       this.swingActive  = true;
       this.swingFacing  = p.facing;
 
-      const gs = GS.goblins;
+      const gs = GS.enemies;
       for (let i = gs.length - 1; i >= 0; i--) {
         const g = gs[i];
         if (Math.abs(g.x - tx) < range && Math.abs(g.y - ty) < range) {
