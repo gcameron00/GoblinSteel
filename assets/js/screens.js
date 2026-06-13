@@ -1041,25 +1041,25 @@
     ctx.beginPath();
     ctx.rect(b.x + 2, b.y + 2, b.w - 4, 106);
     ctx.clip();
-    ctx.globalAlpha = active ? 1 : 0.22;
+    ctx.globalAlpha = active ? 1 : 0.35;
     drawPortrait(ctx, cls.name, b.x + b.w / 2, b.y + PORT_CTR);
     ctx.globalAlpha = 1;
     ctx.restore();
 
     // Separator
-    ctx.fillStyle = sel ? cls.col : (active ? '#22225a' : '#101018');
+    ctx.fillStyle = sel ? cls.col : (active ? '#22225a' : '#1e1e30');
     ctx.fillRect(b.x + 4, b.y + 110, b.w - 8, 1);
 
     // Name
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
     ctx.font         = 'bold 13px monospace';
-    ctx.fillStyle    = active ? cls.col : '#1e1e2e';
+    ctx.fillStyle    = active ? cls.col : '#505060';
     ctx.fillText(cls.name, b.x + b.w / 2, b.y + 121);
 
     // Weapon
     ctx.font      = '10px monospace';
-    ctx.fillStyle = active ? '#5050a0' : '#141420';
+    ctx.fillStyle = active ? '#5050a0' : '#383848';
     ctx.fillText(cls.desc, b.x + b.w / 2, b.y + 133);
 
     if (active) {
@@ -1077,28 +1077,36 @@
         }
       }
     } else {
-      // Locked — show unlock requirements
-      const cond      = GS.CLASS_UNLOCK[cls.name];
-      const canBuy    = cond && GS.meta.gold >= cond.gold && GS.meta.bossKills >= (cond.bossKills || 0);
+      // Locked — show unlock requirements clearly
+      const cond   = GS.CLASS_UNLOCK[cls.name];
+      const canBuy = cond && GS.meta.gold >= cond.gold && GS.meta.bossKills >= (cond.bossKills || 0);
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font         = 'bold 11px monospace';
-      ctx.fillStyle    = canBuy ? '#c0a020' : '#303040';
-      ctx.fillText('[ LOCKED ]', b.x + b.w / 2, b.y + 152);
+
+      ctx.font      = 'bold 11px monospace';
+      ctx.fillStyle = canBuy ? '#d4a820' : '#707080';
+      ctx.fillText('[ LOCKED ]', b.x + b.w / 2, b.y + 148);
+
       if (cond) {
-        ctx.font      = '9px monospace';
-        ctx.fillStyle = canBuy ? '#c8a830' : '#282838';
-        let costText  = cond.gold + 'g';
-        if (cond.bossKills) costText += ' + ' + cond.bossKills + ' boss';
-        ctx.fillText(costText, b.x + b.w / 2, b.y + 165);
+        // Cost requirement
+        ctx.font      = '10px monospace';
+        ctx.fillStyle = canBuy ? '#e0c030' : '#909098';
+        let costLine  = 'Unlock: ' + cond.gold + 'g';
+        if (cond.bossKills) costLine += ' + ' + cond.bossKills + ' boss';
+        ctx.fillText(costLine, b.x + b.w / 2, b.y + 162);
+
         if (canBuy) {
-          ctx.font      = 'bold 9px monospace';
-          ctx.fillStyle = '#60d020';
-          ctx.fillText('Click to unlock!', b.x + b.w / 2, b.y + 178);
+          ctx.font      = 'bold 10px monospace';
+          ctx.fillStyle = '#40d020';
+          ctx.fillText('Click to unlock!', b.x + b.w / 2, b.y + 177);
         } else {
+          // Progress toward unlock
           ctx.font      = '9px monospace';
-          ctx.fillStyle = '#1c1c2c';
-          ctx.fillText('Need ' + GS.meta.gold + '/' + cond.gold + 'g', b.x + b.w / 2, b.y + 178);
+          ctx.fillStyle = '#606068';
+          ctx.fillText(GS.meta.gold + 'g / ' + cond.gold + 'g', b.x + b.w / 2, b.y + 176);
+          if (cond.bossKills) {
+            ctx.fillText(GS.meta.bossKills + ' / ' + cond.bossKills + ' boss kills', b.x + b.w / 2, b.y + 187);
+          }
         }
       }
     }
