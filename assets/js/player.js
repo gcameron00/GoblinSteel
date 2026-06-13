@@ -7,19 +7,31 @@
 
   // Start in the centre of the spawn room
   GS.player = {
-    x:      5.5 * T,   // world-space centre X
-    y:      5.0 * T,   // world-space centre Y
+    x:      5.5 * T,
+    y:      5.0 * T,
     speed:  2.5,
     facing: 'down',
     hp:     80,
     maxHp:  80,
-    name:   'Elf',
+    name:   'ELF',
 
-    // Walk animation state
-    moving:       false,
-    frameTimer:   0,
-    frame:        0,
-    frameDuration: 8,   // ticks between frame flip
+    moving:        false,
+    frameTimer:    0,
+    frame:         0,
+    frameDuration: 8,
+  };
+
+  GS.player.reset = function () {
+    const cls   = GS.selectedClass;
+    GS.player.x       = 5.5 * T;
+    GS.player.y       = 5.0 * T;
+    GS.player.facing  = 'down';
+    GS.player.hp      = cls ? cls.maxHp : 80;
+    GS.player.maxHp   = cls ? cls.maxHp : 80;
+    GS.player.name    = cls ? cls.name  : 'ELF';
+    GS.player.moving  = false;
+    GS.player.frameTimer = 0;
+    GS.player.frame   = 0;
   };
 
   // Returns true if the player centre (px, py) keeps all four AABB corners on floor tiles

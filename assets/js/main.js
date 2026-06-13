@@ -16,20 +16,29 @@
   GS.camera.update();
 
   function update() {
-    if (GS.screen.phase() !== 'game') {
+    const phase = GS.screen.phase();
+    if (phase !== 'game') {
       GS.screen.update();
       return;
     }
     GS.player.update();
+    GS.combat.update();
     GS.arrows.update();
     GS.goblins.update();
     GS.camera.update();
+
+    if (GS.goblins.length === 0)  GS.screen.win();
+    if (GS.player.hp   <= 0)      GS.screen.dead();
   }
 
   function loop() {
     update();
-    if (GS.screen.phase() !== 'game') {
+    const phase = GS.screen.phase();
+    if (phase === 'title' || phase === 'select' || phase === 'play-fade') {
       GS.screen.render(ctx);
+    } else if (phase === 'win' || phase === 'dead') {
+      GS.render(ctx);           // frozen dungeon behind overlay
+      GS.screen.render(ctx);    // end-screen overlay
     } else {
       GS.render(ctx);
     }

@@ -1,36 +1,26 @@
 'use strict';
 
 (function () {
-  const SPEED    = 8;
-  const COOLDOWN = 18;  // frames between shots (~0.3s at 60fps)
-
-  let cooldown = 0;
-
-  // Pool of active arrows
+  // Pool of active projectiles (arrows + wizard bolts)
   GS.arrows = [];
 
-  GS.arrows.fire = function () {
-    if (cooldown > 0) return;
-
+  // Spawn a projectile from the player's position.
+  // speed: pixels/frame, damage: HP to deal on hit
+  GS.arrows.fire = function (speed, damage) {
     const p = GS.player;
     let vx = 0, vy = 0;
 
     switch (p.facing) {
-      case 'right': vx =  SPEED; break;
-      case 'left':  vx = -SPEED; break;
-      case 'down':  vy =  SPEED; break;
-      case 'up':    vy = -SPEED; break;
+      case 'right': vx =  speed; break;
+      case 'left':  vx = -speed; break;
+      case 'down':  vy =  speed; break;
+      case 'up':    vy = -speed; break;
     }
 
-    GS.arrows.push({ x: p.x, y: p.y, vx: vx, vy: vy });
-    cooldown = COOLDOWN;
+    GS.arrows.push({ x: p.x, y: p.y, vx: vx, vy: vy, damage: damage || 1 });
   };
 
   GS.arrows.update = function () {
-    if (cooldown > 0) cooldown--;
-
-    if (GS.input.fire) GS.arrows.fire();
-
     const T = GS.TILE_SIZE;
 
     for (let i = GS.arrows.length - 1; i >= 0; i--) {

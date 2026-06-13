@@ -239,15 +239,7 @@
   // Elf sprite
   // -------------------------------------------------------------------------
   function drawElf(ctx) {
-    const p   = GS.player;
-    const cam = GS.camera;
-
-    const sx = Math.round(p.x - cam.x);
-    const sy = Math.round(p.y - cam.y) + GS.HUD_H;
-
-    ctx.save();
-    ctx.translate(sx, sy);
-
+    const p     = GS.player;
     const f     = p.facing;
     const frame = p.frame;
 
@@ -376,12 +368,319 @@
       ctx.lineTo(bArcCx + Math.cos(Math.PI + bAngle) * bRad, bcy + Math.sin(Math.PI + bAngle) * bRad);
     }
     ctx.stroke();
+  }
+
+  // -------------------------------------------------------------------------
+  // Warrior sprite
+  // -------------------------------------------------------------------------
+  function drawWarrior(ctx) {
+    const p   = GS.player;
+    const f   = p.facing;
+    const frame = p.frame;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(1, 11, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Boots
+    ctx.fillStyle = '#3a2010';
+    if (frame === 0) {
+      ctx.fillRect(-3, 10, 3, 6);
+      ctx.fillRect( 1, 10, 3, 6);
+    } else {
+      ctx.fillRect(-4,  9, 3, 7);
+      ctx.fillRect( 2, 11, 3, 5);
+    }
+
+    // Armoured body
+    ctx.fillStyle = '#607080';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8898a8';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Armour plate line + belt
+    ctx.fillStyle = '#485868';
+    ctx.fillRect(-1, -4, 2, 14);
+    ctx.fillStyle = '#9098a8';
+    ctx.fillRect(-12, 1, 24, 2);
+    ctx.fillStyle = '#4a3010';
+    ctx.fillRect(-12, 4, 24, 2);
+    ctx.fillStyle = '#c8a020';
+    ctx.fillRect(-3, 4, 6, 2);
+
+    // Head (skin)
+    ctx.fillStyle = '#d09460';
+    ctx.beginPath();
+    ctx.arc(0, -9, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Steel helmet
+    ctx.fillStyle = '#708090';
+    ctx.beginPath();
+    ctx.arc(0, -11, 7, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(-7, -11, 14, 4);
+    ctx.fillStyle = '#8898a8';
+    ctx.fillRect(-7, -11, 14, 1);
+
+    // Eyes under visor
+    ctx.fillStyle = '#1a0800';
+    ctx.fillRect(-3, -11, 2, 2);
+    ctx.fillRect( 2, -11, 2, 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-2, -11, 1, 1);
+    ctx.fillRect( 3, -11, 1, 1);
+
+    // Sword to the side (direction based on facing)
+    const sRight = (f === 'right' || f === 'down');
+    const sm     = sRight ? 1 : -1;
+    const sOff   = sRight ? 11 : -13;
+
+    ctx.fillStyle = '#b0b8c8';
+    ctx.fillRect(sOff, -14, 3 * sm, 22);
+    ctx.fillStyle = '#d0d8e8';
+    ctx.fillRect(sOff, -14, 1 * sm, 22);
+    ctx.fillStyle = '#c8a020';
+    ctx.fillRect(sOff - 4 * sm, -5, 11 * sm, 3);
+    ctx.fillStyle = '#7a3810';
+    ctx.fillRect(sOff + 1 * sm, -2, 2 * sm, 11);
+  }
+
+  // -------------------------------------------------------------------------
+  // Cleric sprite
+  // -------------------------------------------------------------------------
+  function drawCleric(ctx) {
+    const p     = GS.player;
+    const f     = p.facing;
+    const frame = p.frame;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(1, 11, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Boots
+    ctx.fillStyle = '#2e1e50';
+    if (frame === 0) {
+      ctx.fillRect(-3, 10, 3, 6);
+      ctx.fillRect( 1, 10, 3, 6);
+    } else {
+      ctx.fillRect(-4,  9, 3, 7);
+      ctx.fillRect( 2, 11, 3, 5);
+    }
+
+    // Gold/white robes
+    ctx.fillStyle = '#c8a030';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#e8c850';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cross on robes
+    ctx.fillStyle = '#ffe060';
+    ctx.fillRect(-1, -5, 2, 14);
+    ctx.fillRect(-5,  0, 10, 2);
+    ctx.fillStyle = '#8a6020';
+    ctx.fillRect(-12, 4, 24, 2);
+
+    // Head
+    ctx.fillStyle = '#d09460';
+    ctx.beginPath();
+    ctx.arc(0, -9, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Vestment hood (gold)
+    ctx.fillStyle = '#c8a030';
+    ctx.beginPath();
+    ctx.arc(0, -11, 8, -Math.PI * 0.85, 0.1);
+    ctx.stroke();
+    ctx.strokeStyle = '#e8c850';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.arc(0, -11, 8, -Math.PI * 0.85, 0.1);
+    ctx.stroke();
+
+    // Hair
+    ctx.fillStyle = '#b07020';
+    ctx.beginPath();
+    ctx.arc(0, -11, 5, Math.PI, 0);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#1a0800';
+    ctx.fillRect(-3, -10, 2, 2);
+    ctx.fillRect( 2, -10, 2, 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-2, -10, 1, 1);
+    ctx.fillRect( 3, -10, 1, 1);
+
+    // Mace to the side
+    const mRight = (f === 'right' || f === 'down');
+    const mOff   = mRight ? 10 : -12;
+    const mm     = mRight ? 1 : -1;
+
+    ctx.fillStyle = '#888898';
+    ctx.fillRect(mOff, -10, 2 * mm, 18);
+    ctx.fillStyle = '#504030';
+    ctx.fillRect(mOff + 2 * mm, 6, 2 * mm, 5);
+    ctx.fillStyle = '#a0a0b8';
+    ctx.fillRect(mOff - 2 * mm, -13, 7 * mm, 7);
+    ctx.fillStyle = '#c0c0d0';
+    ctx.fillRect(mOff - 1 * mm, -12, 5 * mm, 1);
+  }
+
+  // -------------------------------------------------------------------------
+  // Wizard sprite
+  // -------------------------------------------------------------------------
+  function drawWizard(ctx) {
+    const p     = GS.player;
+    const f     = p.facing;
+    const frame = p.frame;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(1, 11, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Boots
+    ctx.fillStyle = '#2e1e50';
+    if (frame === 0) {
+      ctx.fillRect(-3, 10, 3, 6);
+      ctx.fillRect( 1, 10, 3, 6);
+    } else {
+      ctx.fillRect(-4,  9, 3, 7);
+      ctx.fillRect( 2, 11, 3, 5);
+    }
+
+    // Purple robes
+    ctx.fillStyle = '#502078';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8030c0';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 12, 13, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Star rune details on robe
+    ctx.fillStyle = '#f8d020';
+    ctx.fillRect(-1, -4, 2, 2);
+    ctx.fillRect(-4,  1, 8, 2);
+    ctx.fillRect(-1,  6, 2, 2);
+    ctx.fillStyle = '#401060';
+    ctx.fillRect(-12, 4, 24, 2);
+
+    // Head
+    ctx.fillStyle = '#d09460';
+    ctx.beginPath();
+    ctx.arc(0, -9, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pointy wizard hat
+    ctx.fillStyle = '#3a1060';
+    ctx.beginPath();
+    ctx.moveTo(0, -26);
+    ctx.lineTo(-9, -11);
+    ctx.lineTo(9,  -11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#6020a0';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -26);
+    ctx.lineTo(-9, -11);
+    ctx.lineTo(9,  -11);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fillStyle = '#f8d020';
+    ctx.fillRect(-9, -17, 18, 2);
+
+    // Eyes (glowing purple)
+    ctx.shadowBlur    = 6;
+    ctx.shadowColor   = '#c060ff';
+    ctx.fillStyle     = '#b050f0';
+    ctx.fillRect(-3, -10, 2, 2);
+    ctx.fillRect( 2, -10, 2, 2);
+    ctx.shadowBlur    = 0;
+    ctx.fillStyle     = '#ffffff';
+    ctx.fillRect(-2, -10, 1, 1);
+    ctx.fillRect( 3, -10, 1, 1);
+
+    // Staff with glowing orb (to the side)
+    const wRight = (f === 'right' || f === 'down');
+    const wOff   = wRight ? 11 : -13;
+    const wm     = wRight ? 1 : -1;
+
+    ctx.fillStyle = '#7a4010';
+    ctx.fillRect(wOff, -16, 2 * wm, 28);
+
+    const og = ctx.createRadialGradient(wOff + wm, -18, 2, wOff + wm, -18, 6);
+    og.addColorStop(0, '#f0c0ff');
+    og.addColorStop(0.5, '#9030e0');
+    og.addColorStop(1, '#280850');
+    ctx.shadowBlur  = 10;
+    ctx.shadowColor = '#c060ff';
+    ctx.fillStyle   = og;
+    ctx.beginPath();
+    ctx.arc(wOff + wm, -18, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+  }
+
+  // -------------------------------------------------------------------------
+  // Dispatch to the correct player sprite
+  // -------------------------------------------------------------------------
+  function drawPlayer(ctx) {
+    const cam = GS.camera;
+    const p   = GS.player;
+    const sx  = Math.round(p.x - cam.x);
+    const sy  = Math.round(p.y - cam.y) + GS.HUD_H;
+
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    switch (GS.player.name) {
+      case 'WARRIOR': drawWarrior(ctx); break;
+      case 'CLERIC':  drawCleric(ctx);  break;
+      case 'WIZARD':  drawWizard(ctx);  break;
+      default:        drawElf(ctx);     break;  // ELF
+    }
+
+    // Melee swing arc (Warrior / Cleric)
+    if (GS.combat && GS.combat.swingActive) {
+      const isCleric = GS.player.name === 'CLERIC';
+      ctx.save();
+      ctx.globalAlpha  = 0.75;
+      ctx.strokeStyle  = isCleric ? '#ffe060' : '#c0d0f0';
+      ctx.lineWidth    = 4;
+      ctx.lineCap      = 'round';
+      ctx.beginPath();
+      switch (GS.combat.swingFacing) {
+        case 'right': ctx.moveTo(6, -14); ctx.lineTo(22, 8);  break;
+        case 'left':  ctx.moveTo(-6, -14); ctx.lineTo(-22, 8); break;
+        case 'down':  ctx.moveTo(-14, 6);  ctx.lineTo(8, 22);  break;
+        case 'up':    ctx.moveTo(-14, -6); ctx.lineTo(8, -22); break;
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
 
     ctx.restore();
   }
 
   // -------------------------------------------------------------------------
-  // Arrows in flight
+  // Arrows / bolts in flight
   // -------------------------------------------------------------------------
   function drawArrows(ctx) {
     const cam = GS.camera;
@@ -394,27 +693,40 @@
       ctx.save();
       ctx.translate(sx, sy);
 
-      // Shaft
-      ctx.fillStyle = '#a0621e';
-      if (a.vx !== 0) {
-        ctx.fillRect(-7, -1, 14, 2);
+      if (a.damage > 1) {
+        // Wizard magic bolt — glowing orb
+        const mg = ctx.createRadialGradient(0, 0, 1, 0, 0, 5);
+        mg.addColorStop(0, '#f0c0ff');
+        mg.addColorStop(0.5, '#9030e0');
+        mg.addColorStop(1, 'rgba(40,8,80,0)');
+        ctx.shadowBlur  = 8;
+        ctx.shadowColor = '#c060ff';
+        ctx.fillStyle   = mg;
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
       } else {
-        ctx.fillRect(-1, -7, 2, 14);
+        // Standard arrow
+        ctx.fillStyle = '#a0621e';
+        if (a.vx !== 0) {
+          ctx.fillRect(-7, -1, 14, 2);
+        } else {
+          ctx.fillRect(-1, -7, 2, 14);
+        }
+
+        ctx.fillStyle = '#c8c8b0';
+        if      (a.vx > 0) { ctx.fillRect( 5, -2, 5, 4); }
+        else if (a.vx < 0) { ctx.fillRect(-10, -2, 5, 4); }
+        else if (a.vy > 0) { ctx.fillRect(-2,  5, 4, 5); }
+        else               { ctx.fillRect(-2, -10, 4, 5); }
+
+        ctx.fillStyle = '#cc3030';
+        if      (a.vx > 0) { ctx.fillRect(-10, -3, 4, 2); ctx.fillRect(-10,  1, 4, 2); }
+        else if (a.vx < 0) { ctx.fillRect(  6, -3, 4, 2); ctx.fillRect(  6,  1, 4, 2); }
+        else if (a.vy > 0) { ctx.fillRect(-3, -10, 2, 4); ctx.fillRect(  1,-10, 2, 4); }
+        else               { ctx.fillRect(-3,   6, 2, 4); ctx.fillRect(  1,  6, 2, 4); }
       }
-
-      // Arrowhead
-      ctx.fillStyle = '#c8c8b0';
-      if      (a.vx > 0) { ctx.fillRect( 5, -2, 5, 4); }
-      else if (a.vx < 0) { ctx.fillRect(-10, -2, 5, 4); }
-      else if (a.vy > 0) { ctx.fillRect(-2,  5, 4, 5); }
-      else               { ctx.fillRect(-2, -10, 4, 5); }
-
-      // Fletching
-      ctx.fillStyle = '#cc3030';
-      if      (a.vx > 0) { ctx.fillRect(-10, -3, 4, 2); ctx.fillRect(-10,  1, 4, 2); }
-      else if (a.vx < 0) { ctx.fillRect(  6, -3, 4, 2); ctx.fillRect(  6,  1, 4, 2); }
-      else if (a.vy > 0) { ctx.fillRect(-3, -10, 2, 4); ctx.fillRect(  1,-10, 2, 4); }
-      else               { ctx.fillRect(-3,   6, 2, 4); ctx.fillRect(  1,  6, 2, 4); }
 
       ctx.restore();
     }
@@ -467,8 +779,8 @@
     // Class name
     ctx.font         = 'bold 14px monospace';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle    = GS.C.TEXT_YELLOW;
-    ctx.fillText('ELF', 10, h / 2);
+    ctx.fillStyle    = GS.selectedClass ? GS.selectedClass.col : GS.C.TEXT_YELLOW;
+    ctx.fillText(GS.player.name, 10, h / 2);
 
     // HP label
     ctx.fillStyle = GS.C.TEXT_DIM;
@@ -507,7 +819,7 @@
 
     drawTiles(ctx);
     drawGoblins(ctx);
-    drawElf(ctx);
+    drawPlayer(ctx);
     drawArrows(ctx);
     drawLighting(ctx);
     drawHUD(ctx);

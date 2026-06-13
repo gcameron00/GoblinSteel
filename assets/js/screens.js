@@ -22,14 +22,14 @@
   // Character definitions
   // -------------------------------------------------------------------------
   const CLASSES = [
-    { name: 'WARRIOR', active: false, col: '#c84020', desc: 'Sword & Shield',
-      stats: { STR: 5, DEX: 2, INT: 1, HP: 5 } },
-    { name: 'ELF',     active: true,  col: '#38c028', desc: 'Longbow',
-      stats: { STR: 2, DEX: 5, INT: 3, HP: 3 } },
-    { name: 'CLERIC',  active: false, col: '#c8a020', desc: 'Mace & Holy',
-      stats: { STR: 3, DEX: 2, INT: 4, HP: 4 } },
-    { name: 'WIZARD',  active: false, col: '#8030d0', desc: 'Staff & Spells',
-      stats: { STR: 1, DEX: 2, INT: 5, HP: 2 } },
+    { name: 'WARRIOR', active: true, col: '#c84020', desc: 'Sword & Shield',
+      stats: { STR: 5, DEX: 2, INT: 1, HP: 5 }, maxHp: 100 },
+    { name: 'ELF',     active: true, col: '#38c028', desc: 'Longbow',
+      stats: { STR: 2, DEX: 5, INT: 3, HP: 3 }, maxHp: 80  },
+    { name: 'CLERIC',  active: true, col: '#c8a020', desc: 'Mace & Holy',
+      stats: { STR: 3, DEX: 2, INT: 4, HP: 4 }, maxHp: 90  },
+    { name: 'WIZARD',  active: true, col: '#8030d0', desc: 'Staff & Spells',
+      stats: { STR: 1, DEX: 2, INT: 5, HP: 2 }, maxHp: 60  },
   ];
 
   // -------------------------------------------------------------------------
@@ -47,12 +47,18 @@
   const BTN_X = Math.round((CW - BTN_W) / 2);
   const BTN_Y = CARDS_Y + CARD_H + 24;
 
+  const RESTART_W = 220;
+  const RESTART_H = 38;
+  const RESTART_X = Math.round((CW - RESTART_W) / 2);
+  const RESTART_Y = Math.round(CH / 2) + 70;
+
   // -------------------------------------------------------------------------
   // Interaction
   // -------------------------------------------------------------------------
   let selectedClass = -1;
   let hoverCard     = -1;
   let hoverPlay     = false;
+  let hoverRestart  = false;
 
   function cardBounds(i) {
     return { x: CARDS_X + i * (CARD_W + CARD_GAP), y: CARDS_Y, w: CARD_W, h: CARD_H };
@@ -69,8 +75,14 @@
   }
 
   function handleClick(e) {
-    if (phase !== 'select' || cardAlpha < 0.8) return;
     const { cx, cy } = toCanvas(e);
+
+    if (phase === 'win' || phase === 'dead') {
+      if (hit(cx, cy, { x: RESTART_X, y: RESTART_Y, w: RESTART_W, h: RESTART_H })) resetGame();
+      return;
+    }
+
+    if (phase !== 'select' || cardAlpha < 0.8) return;
     for (let i = 0; i < CLASSES.length; i++) {
       if (CLASSES[i].active && hit(cx, cy, cardBounds(i))) { selectedClass = i; return; }
     }
@@ -82,8 +94,15 @@
   }
 
   function handleMouseMove(e) {
-    if (phase !== 'select' || cardAlpha < 0.8) return;
     const { cx, cy } = toCanvas(e);
+
+    if (phase === 'win' || phase === 'dead') {
+      hoverRestart = hit(cx, cy, { x: RESTART_X, y: RESTART_Y, w: RESTART_W, h: RESTART_H });
+      canvas.style.cursor = hoverRestart ? 'pointer' : 'default';
+      return;
+    }
+
+    if (phase !== 'select' || cardAlpha < 0.8) return;
     hoverCard = -1;
     for (let i = 0; i < CLASSES.length; i++) {
       if (CLASSES[i].active && hit(cx, cy, cardBounds(i))) { hoverCard = i; break; }
@@ -91,6 +110,21 @@
     hoverPlay = selectedClass >= 0 && CLASSES[selectedClass].active &&
                 hit(cx, cy, { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H });
     canvas.style.cursor = (hoverCard >= 0 || hoverPlay) ? 'pointer' : 'default';
+  }
+
+  function resetGame() {
+    GS.arrows.splice(0, GS.arrows.length);
+    GS.goblins.reset();
+    GS.combat.reset();
+    phase         = 'select';
+    cardAlpha     = 1;
+    selectedClass = -1;
+    hoverCard     = -1;
+    hoverPlay     = false;
+    hoverRestart  = false;
+    fadeAlpha     = 0;
+    timer         = 0;
+    canvas.style.cursor = 'default';
   }
 
   // -------------------------------------------------------------------------
@@ -105,11 +139,10 @@
       canvas.addEventListener('mousemove', handleMouseMove);
     },
 
-    destroy: function () {
-      canvas.removeEventListener('click',     handleClick);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.style.cursor = 'default';
-    },
+    destroy: function () { canvas.style.cursor = 'default'; },
+
+    win:  function () { phase = 'win';  },
+    dead: function () { phase = 'dead'; },
 
     update: function () {
       timer++;
@@ -122,12 +155,25 @@
           break;
         case 'play-fade':
           fadeAlpha = timer / PLAY_FADE;
-          if (timer >= PLAY_FADE) { phase = 'game'; fadeAlpha = 0; GS.screen.destroy(); }
+          if (timer >= PLAY_FADE) {
+            GS.selectedClass = CLASSES[selectedClass];
+            GS.player.reset();
+            phase = 'game';
+            fadeAlpha = 0;
+          }
+          break;
+        case 'win':
+        case 'dead':
           break;
       }
     },
 
     render: function (ctx) {
+      if (phase === 'win' || phase === 'dead') {
+        drawEndScreen(ctx, phase === 'win');
+        return;
+      }
+
       // Background scene is ALWAYS drawn (title and select share it)
       drawScene(ctx);
       drawEmblem(ctx, CW / 2, 100);
@@ -1064,6 +1110,52 @@
     ctx.strokeStyle = '#ffe040'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(-29,-10,11,0,Math.PI*2); ctx.stroke();
     ctx.fillStyle = '#ffe040'; ctx.fillRect(-33,-12,8,3); ctx.fillRect(-33,-7,8,3);
+  }
+
+  // =========================================================================
+  // END SCREEN (win / dead overlay — rendered over the frozen dungeon)
+  // =========================================================================
+  function drawEndScreen(ctx, victory) {
+    ctx.fillStyle = victory ? 'rgba(0,20,0,0.84)' : 'rgba(20,0,0,0.84)';
+    ctx.fillRect(0, 0, CW, CH);
+
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font         = 'bold 72px monospace';
+    ctx.lineJoin     = 'round';
+    ctx.lineWidth    = 10;
+    ctx.strokeStyle  = victory ? '#002000' : '#200000';
+    ctx.strokeText(victory ? 'VICTORY!' : 'DEFEATED', CW / 2, CH * 0.35);
+
+    const tg = ctx.createLinearGradient(0, CH * 0.30, 0, CH * 0.42);
+    if (victory) {
+      tg.addColorStop(0, '#ffe060');
+      tg.addColorStop(1, '#40c020');
+    } else {
+      tg.addColorStop(0, '#ff4020');
+      tg.addColorStop(1, '#880000');
+    }
+    ctx.fillStyle = tg;
+    ctx.fillText(victory ? 'VICTORY!' : 'DEFEATED', CW / 2, CH * 0.35);
+
+    ctx.font      = '18px monospace';
+    ctx.fillStyle = victory ? '#60d040' : '#cc4040';
+    ctx.fillText(
+      victory ? 'All goblins have been slain!' : 'You were slain by the goblins...',
+      CW / 2, CH * 0.48
+    );
+
+    const bx = RESTART_X, by = RESTART_Y, bw = RESTART_W, bh = RESTART_H;
+    ctx.fillStyle   = hoverRestart ? (victory ? '#38d020' : '#d02020') : (victory ? '#24a818' : '#901010');
+    ctx.fillRect(bx, by, bw, bh);
+    if (hoverRestart) { ctx.shadowBlur = 14; ctx.shadowColor = victory ? '#50ff30' : '#ff3030'; }
+    ctx.strokeStyle = hoverRestart ? (victory ? '#60ff40' : '#ff5050') : (victory ? '#38b828' : '#bb2020');
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.shadowBlur  = 0;
+    ctx.font        = 'bold 18px monospace';
+    ctx.fillStyle   = '#ffffff';
+    ctx.fillText('▶  PLAY AGAIN', bx + bw / 2, by + bh / 2);
   }
 
   function wizardPortrait(ctx) {

@@ -41,24 +41,18 @@
     };
   }
 
-  // Place goblins in the three rooms away from spawn
-  GS.goblins = [
-    // Upper-right room (cols 16-25, rows 2-10)
-    makeGoblin(18, 4),
-    makeGoblin(21, 5),
-    makeGoblin(23, 8),
-
-    // Lower-right room (cols 16-27, rows 17-25)
-    makeGoblin(18, 19),
-    makeGoblin(22, 20),
-    makeGoblin(24, 18),
-    makeGoblin(20, 23),
-
-    // Lower-left room (cols 2-11, rows 16-25)
-    makeGoblin(4, 18),
-    makeGoblin(7, 20),
-    makeGoblin(9, 23),
+  const SPAWN_POSITIONS = [
+    [18, 4], [21, 5], [23, 8],
+    [18, 19], [22, 20], [24, 18], [20, 23],
+    [4, 18], [7, 20], [9, 23],
   ];
+
+  GS.goblins = SPAWN_POSITIONS.map(([c, r]) => makeGoblin(c, r));
+
+  GS.goblins.reset = function () {
+    GS.goblins.splice(0, GS.goblins.length);
+    SPAWN_POSITIONS.forEach(([c, r]) => GS.goblins.push(makeGoblin(c, r)));
+  };
 
   GS.goblins.update = function () {
     const p  = GS.player;
@@ -155,9 +149,9 @@
         const adx = a.x - g.x;
         const ady = a.y - g.y;
         if (Math.abs(adx) < 13 && Math.abs(ady) < 13) {
-          g.hp--;
+          g.hp        -= (a.damage || 1);
           g.hitFlash   = 10;
-          g.state      = 'aggro';   // getting shot makes them angry
+          g.state      = 'aggro';
           arrows.splice(ai, 1);
           if (g.hp <= 0) gs.splice(gi, 1);
           break;
