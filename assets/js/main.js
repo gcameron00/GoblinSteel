@@ -9,6 +9,9 @@
 
   ctx.imageSmoothingEnabled = false;
 
+  // Load persistent meta-progression data
+  GS.meta.load();
+
   // Initialise title/select system
   GS.screen.init(canvas);
 
@@ -29,13 +32,22 @@
 
     // Win when the boss is dead
     if (GS.enemies.length === 0 || !GS.enemies.some(e => e.boss)) GS.screen.win();
-    if (GS.player.hp   <= 0)      GS.screen.dead();
+
+    // Death — Second Wind revives once per run at 10 HP (guard ensures win takes priority)
+    if (GS.player.hp <= 0 && GS.screen.phase() === 'game') {
+      if ((GS.meta.upgrades.second_wind || 0) >= 1 && !GS.runStats.secondWindUsed) {
+        GS.player.hp           = 10;
+        GS.runStats.secondWindUsed = true;
+      } else {
+        GS.screen.dead();
+      }
+    }
   }
 
   function loop() {
     update();
     const phase = GS.screen.phase();
-    if (phase === 'title' || phase === 'select' || phase === 'play-fade') {
+    if (phase === 'title' || phase === 'select' || phase === 'play-fade' || phase === 'upgrade') {
       GS.screen.render(ctx);
     } else if (phase === 'win' || phase === 'dead') {
       GS.render(ctx);           // frozen dungeon behind overlay

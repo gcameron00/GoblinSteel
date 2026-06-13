@@ -108,6 +108,18 @@
 
   GS.enemies = spawnEnemies();
 
+  const GOLD_DROP = { goblin: 5, skeleton: 8, orc: 15, boss: 50 };
+
+  GS.enemies.kill = function (idx) {
+    const e    = GS.enemies[idx];
+    const base = GOLD_DROP[e.type] || 5;
+    const mult = GS.meta ? (1 + 0.5 * (GS.meta.upgrades.gold_find || 0)) : 1;
+    GS.runStats.gold += Math.round(base * mult);
+    GS.runStats.kills++;
+    if (e.boss && GS.meta) GS.meta.bossKills++;
+    GS.enemies.splice(idx, 1);
+  };
+
   GS.enemies.reset = function () {
     GS.enemies.splice(0, GS.enemies.length);
     spawnEnemies().forEach(e => GS.enemies.push(e));
@@ -150,7 +162,8 @@
           if (canOccupy(e.x,            e.y + ny * spd)) e.y += ny * spd;
         } else {
           if (e.attackTimer <= 0) {
-            p.hp = Math.max(0, p.hp - cfg.meleeDamage);
+            const armor = GS.meta ? (GS.meta.upgrades.armor || 0) : 0;
+            p.hp = Math.max(0, p.hp - Math.max(1, cfg.meleeDamage - armor));
             e.attackTimer = cfg.meleeCd;
           }
         }
@@ -198,7 +211,7 @@
           e.hitFlash  = 10;
           e.state     = 'aggro';
           arrows.splice(ai, 1);
-          if (e.hp <= 0) es.splice(ei, 1);
+          if (e.hp <= 0) GS.enemies.kill(ei);
           break;
         }
       }

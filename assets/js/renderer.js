@@ -918,6 +918,7 @@
     // Class name
     ctx.font         = 'bold 14px monospace';
     ctx.textBaseline = 'middle';
+    ctx.textAlign    = 'left';
     ctx.fillStyle    = GS.selectedClass ? GS.selectedClass.col : GS.C.TEXT_YELLOW;
     ctx.fillText(GS.player.name, 10, h / 2);
 
@@ -946,6 +947,13 @@
     ctx.fillStyle = GS.C.TEXT_DIM;
     ctx.font      = '10px monospace';
     ctx.fillText(p.hp + '/' + p.maxHp, barX + barW + 6, h / 2);
+
+    // Gold counter (right side)
+    const goldStr = GS.runStats.gold + 'g';
+    ctx.textAlign = 'right';
+    ctx.font      = 'bold 12px monospace';
+    ctx.fillStyle = '#f0c020';
+    ctx.fillText(goldStr, w - 8, h / 2);
   }
 
   // -------------------------------------------------------------------------

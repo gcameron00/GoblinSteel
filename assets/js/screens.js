@@ -55,10 +55,13 @@
   // -------------------------------------------------------------------------
   // Interaction
   // -------------------------------------------------------------------------
-  let selectedClass = -1;
-  let hoverCard     = -1;
-  let hoverPlay     = false;
-  let hoverRestart  = false;
+  let selectedClass    = -1;
+  let hoverCard        = -1;
+  let hoverPlay        = false;
+  let hoverRestart     = false;
+  let upgradeOffers    = [];
+  let hoverUpgrade     = -1;
+  let hoverSkip        = false;
 
   function cardBounds(i) {
     return { x: CARDS_X + i * (CARD_W + CARD_GAP), y: CARDS_Y, w: CARD_W, h: CARD_H };
@@ -66,6 +69,35 @@
   function hit(px, py, r) {
     return px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h;
   }
+
+  function isClassActive(cls) {
+    return GS.meta ? (GS.meta.unlockedClasses[cls.name] === true) : cls.active;
+  }
+
+  function upgradeCost(upg) {
+    return ((GS.meta.upgrades[upg.id] || 0) + 1) * 60;   // 60 / 120 / 180
+  }
+
+  function upgradeCardBounds(i) {
+    const n = upgradeOffers.length, cw = 196, gap = 22;
+    const totalW = n * cw + (n - 1) * gap;
+    const startX = Math.round((CW - totalW) / 2);
+    return { x: startX + i * (cw + gap), y: 155, w: cw, h: 200 };
+  }
+
+  function skipBtnBounds() {
+    return { x: Math.round((CW - 160) / 2), y: 374, w: 160, h: 34 };
+  }
+
+  function prepareUpgradeOffers(count) {
+    const pool = GS.UPGRADES.filter(u => (GS.meta.upgrades[u.id] || 0) < u.maxLevel);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    upgradeOffers = pool.slice(0, count);
+  }
+
   function toCanvas(e) {
     const r = canvas.getBoundingClientRect();
     return {
@@ -78,15 +110,50 @@
     const { cx, cy } = toCanvas(e);
 
     if (phase === 'win' || phase === 'dead') {
-      if (hit(cx, cy, { x: RESTART_X, y: RESTART_Y, w: RESTART_W, h: RESTART_H })) resetGame();
+      if (hit(cx, cy, { x: RESTART_X, y: RESTART_Y, w: RESTART_W, h: RESTART_H })) {
+        prepareUpgradeOffers(phase === 'win' ? 3 : 2);
+        phase        = 'upgrade';
+        hoverUpgrade = -1;
+        hoverSkip    = false;
+      }
+      return;
+    }
+
+    if (phase === 'upgrade') {
+      for (let i = 0; i < upgradeOffers.length; i++) {
+        if (hit(cx, cy, upgradeCardBounds(i))) {
+          const upg  = upgradeOffers[i];
+          const cost = upgradeCost(upg);
+          if (GS.meta.gold >= cost) {
+            GS.meta.gold -= cost;
+            GS.meta.upgrades[upg.id] = (GS.meta.upgrades[upg.id] || 0) + 1;
+            GS.meta.save();
+            resetGame();
+          }
+          return;
+        }
+      }
+      if (hit(cx, cy, skipBtnBounds())) resetGame();
       return;
     }
 
     if (phase !== 'select' || cardAlpha < 0.8) return;
     for (let i = 0; i < CLASSES.length; i++) {
-      if (CLASSES[i].active && hit(cx, cy, cardBounds(i))) { selectedClass = i; return; }
+      if (!hit(cx, cy, cardBounds(i))) continue;
+      const cls = CLASSES[i];
+      if (isClassActive(cls)) {
+        selectedClass = i;
+      } else {
+        const cond = GS.CLASS_UNLOCK[cls.name];
+        if (cond && GS.meta.gold >= cond.gold && GS.meta.bossKills >= (cond.bossKills || 0)) {
+          GS.meta.gold -= cond.gold;
+          GS.meta.unlockedClasses[cls.name] = true;
+          GS.meta.save();
+        }
+      }
+      return;
     }
-    if (selectedClass >= 0 && CLASSES[selectedClass].active &&
+    if (selectedClass >= 0 && isClassActive(CLASSES[selectedClass]) &&
         hit(cx, cy, { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H })) {
       phase = 'play-fade';
       timer = 0;
@@ -102,17 +169,38 @@
       return;
     }
 
+    if (phase === 'upgrade') {
+      hoverUpgrade = -1;
+      hoverSkip    = false;
+      for (let i = 0; i < upgradeOffers.length; i++) {
+        if (hit(cx, cy, upgradeCardBounds(i)) && GS.meta.gold >= upgradeCost(upgradeOffers[i])) {
+          hoverUpgrade = i; break;
+        }
+      }
+      hoverSkip = hit(cx, cy, skipBtnBounds());
+      canvas.style.cursor = (hoverUpgrade >= 0 || hoverSkip) ? 'pointer' : 'default';
+      return;
+    }
+
     if (phase !== 'select' || cardAlpha < 0.8) return;
     hoverCard = -1;
     for (let i = 0; i < CLASSES.length; i++) {
-      if (CLASSES[i].active && hit(cx, cy, cardBounds(i))) { hoverCard = i; break; }
+      const cls = CLASSES[i];
+      if (hit(cx, cy, cardBounds(i))) {
+        if (isClassActive(cls)) { hoverCard = i; break; }
+        const cond = GS.CLASS_UNLOCK[cls.name];
+        if (cond && GS.meta.gold >= cond.gold && GS.meta.bossKills >= (cond.bossKills || 0)) {
+          hoverCard = i; break;
+        }
+      }
     }
-    hoverPlay = selectedClass >= 0 && CLASSES[selectedClass].active &&
+    hoverPlay = selectedClass >= 0 && isClassActive(CLASSES[selectedClass]) &&
                 hit(cx, cy, { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H });
     canvas.style.cursor = (hoverCard >= 0 || hoverPlay) ? 'pointer' : 'default';
   }
 
   function resetGame() {
+    GS.runStats.reset();
     GS.arrows.splice(0, GS.arrows.length);
     GS.map.rebuild();
     GS.enemies.reset();
@@ -123,6 +211,9 @@
     hoverCard     = -1;
     hoverPlay     = false;
     hoverRestart  = false;
+    hoverUpgrade  = -1;
+    hoverSkip     = false;
+    upgradeOffers = [];
     fadeAlpha     = 0;
     timer         = 0;
     canvas.style.cursor = 'default';
@@ -142,8 +233,20 @@
 
     destroy: function () { canvas.style.cursor = 'default'; },
 
-    win:  function () { phase = 'win';  },
-    dead: function () { phase = 'dead'; },
+    win: function () {
+      GS.meta.gold += GS.runStats.gold;
+      GS.runStats.goldThisRun = GS.runStats.gold;
+      GS.runStats.gold = 0;
+      GS.meta.save();
+      phase = 'win';
+    },
+    dead: function () {
+      GS.meta.gold += GS.runStats.gold;
+      GS.runStats.goldThisRun = GS.runStats.gold;
+      GS.runStats.gold = 0;
+      GS.meta.save();
+      phase = 'dead';
+    },
 
     update: function () {
       timer++;
@@ -165,11 +268,16 @@
           break;
         case 'win':
         case 'dead':
+        case 'upgrade':
           break;
       }
     },
 
     render: function (ctx) {
+      if (phase === 'upgrade') {
+        drawUpgradeScreen(ctx);
+        return;
+      }
       if (phase === 'win' || phase === 'dead') {
         drawEndScreen(ctx, phase === 'win');
         return;
@@ -185,7 +293,7 @@
         ctx.save();
         ctx.globalAlpha = cardAlpha;
         for (let i = 0; i < CLASSES.length; i++) drawCard(ctx, i);
-        if (selectedClass >= 0 && CLASSES[selectedClass].active) drawPlayButton(ctx);
+        if (selectedClass >= 0 && isClassActive(CLASSES[selectedClass])) drawPlayButton(ctx);
         ctx.restore();
       }
 
@@ -906,23 +1014,24 @@
   // CHARACTER CARDS  (overlay lower portion of the scene)
   // =========================================================================
   function drawCard(ctx, i) {
-    const cls = CLASSES[i];
-    const b   = cardBounds(i);
-    const sel = selectedClass === i;
-    const hov = hoverCard === i && cls.active;
+    const cls    = CLASSES[i];
+    const b      = cardBounds(i);
+    const active = isClassActive(cls);
+    const sel    = selectedClass === i;
+    const hov    = hoverCard === i;
 
-    // Semi-opaque dark background — lets the scene bleed through slightly
-    ctx.fillStyle = !cls.active ? 'rgba(5,4,15,0.92)'
-                  : sel         ? 'rgba(14,14,48,0.95)'
-                  : hov         ? 'rgba(10,10,38,0.93)'
-                                : 'rgba(8,8,28,0.92)';
+    // Semi-opaque dark background
+    ctx.fillStyle = !active ? 'rgba(5,4,15,0.92)'
+                  : sel     ? 'rgba(14,14,48,0.95)'
+                  : hov     ? 'rgba(10,10,38,0.93)'
+                            : 'rgba(8,8,28,0.92)';
     ctx.fillRect(b.x, b.y, b.w, b.h);
 
     // Border
     if (sel) { ctx.shadowBlur = 14; ctx.shadowColor = cls.col; }
-    ctx.strokeStyle = sel        ? cls.col
-                    : cls.active  ? '#28285a'
-                                  : '#111118';
+    ctx.strokeStyle = sel    ? cls.col
+                    : active ? '#28285a'
+                             : '#111118';
     ctx.lineWidth   = sel ? 2.5 : 1.5;
     ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
     ctx.shadowBlur  = 0;
@@ -932,28 +1041,28 @@
     ctx.beginPath();
     ctx.rect(b.x + 2, b.y + 2, b.w - 4, 106);
     ctx.clip();
-    ctx.globalAlpha = cls.active ? 1 : 0.22;
+    ctx.globalAlpha = active ? 1 : 0.22;
     drawPortrait(ctx, cls.name, b.x + b.w / 2, b.y + PORT_CTR);
     ctx.globalAlpha = 1;
     ctx.restore();
 
     // Separator
-    ctx.fillStyle = sel ? cls.col : (cls.active ? '#22225a' : '#101018');
+    ctx.fillStyle = sel ? cls.col : (active ? '#22225a' : '#101018');
     ctx.fillRect(b.x + 4, b.y + 110, b.w - 8, 1);
 
     // Name
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
     ctx.font         = 'bold 13px monospace';
-    ctx.fillStyle    = cls.active ? cls.col : '#1e1e2e';
+    ctx.fillStyle    = active ? cls.col : '#1e1e2e';
     ctx.fillText(cls.name, b.x + b.w / 2, b.y + 121);
 
     // Weapon
     ctx.font      = '10px monospace';
-    ctx.fillStyle = cls.active ? '#5050a0' : '#141420';
+    ctx.fillStyle = active ? '#5050a0' : '#141420';
     ctx.fillText(cls.desc, b.x + b.w / 2, b.y + 133);
 
-    if (cls.active) {
+    if (active) {
       const stats = Object.entries(cls.stats);
       for (let s = 0; s < stats.length; s++) {
         const [key, val] = stats[s];
@@ -968,11 +1077,30 @@
         }
       }
     } else {
+      // Locked — show unlock requirements
+      const cond      = GS.CLASS_UNLOCK[cls.name];
+      const canBuy    = cond && GS.meta.gold >= cond.gold && GS.meta.bossKills >= (cond.bossKills || 0);
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font         = 'bold 10px monospace';
-      ctx.fillStyle    = '#202030';
-      ctx.fillText('COMING SOON', b.x + b.w / 2, b.y + 162);
+      ctx.font         = 'bold 11px monospace';
+      ctx.fillStyle    = canBuy ? '#c0a020' : '#303040';
+      ctx.fillText('[ LOCKED ]', b.x + b.w / 2, b.y + 152);
+      if (cond) {
+        ctx.font      = '9px monospace';
+        ctx.fillStyle = canBuy ? '#c8a830' : '#282838';
+        let costText  = cond.gold + 'g';
+        if (cond.bossKills) costText += ' + ' + cond.bossKills + ' boss';
+        ctx.fillText(costText, b.x + b.w / 2, b.y + 165);
+        if (canBuy) {
+          ctx.font      = 'bold 9px monospace';
+          ctx.fillStyle = '#60d020';
+          ctx.fillText('Click to unlock!', b.x + b.w / 2, b.y + 178);
+        } else {
+          ctx.font      = '9px monospace';
+          ctx.fillStyle = '#1c1c2c';
+          ctx.fillText('Need ' + GS.meta.gold + '/' + cond.gold + 'g', b.x + b.w / 2, b.y + 178);
+        }
+      }
     }
   }
 
@@ -1142,8 +1270,16 @@
     ctx.font      = '18px monospace';
     ctx.fillStyle = victory ? '#60d040' : '#cc4040';
     ctx.fillText(
-      victory ? 'All goblins have been slain!' : 'You were slain by the goblins...',
-      CW / 2, CH * 0.48
+      victory ? 'All enemies slain!' : 'You were defeated...',
+      CW / 2, CH * 0.46
+    );
+
+    // Gold earned this run
+    ctx.font      = '14px monospace';
+    ctx.fillStyle = '#f0c020';
+    ctx.fillText(
+      '+' + GS.runStats.goldThisRun + 'g earned   Total: ' + GS.meta.gold + 'g',
+      CW / 2, CH * 0.54
     );
 
     const bx = RESTART_X, by = RESTART_Y, bw = RESTART_W, bh = RESTART_H;
@@ -1156,7 +1292,123 @@
     ctx.shadowBlur  = 0;
     ctx.font        = 'bold 18px monospace';
     ctx.fillStyle   = '#ffffff';
-    ctx.fillText('▶  PLAY AGAIN', bx + bw / 2, by + bh / 2);
+    ctx.fillText('▶  CONTINUE', bx + bw / 2, by + bh / 2);
+  }
+
+  // =========================================================================
+  // UPGRADE SCREEN  (between run end and class select)
+  // =========================================================================
+  function drawUpgradeCard(ctx, i) {
+    const upg      = upgradeOffers[i];
+    const b        = upgradeCardBounds(i);
+    const lvl      = GS.meta.upgrades[upg.id] || 0;
+    const cost     = upgradeCost(upg);
+    const canBuy   = GS.meta.gold >= cost;
+    const hov      = hoverUpgrade === i;
+
+    ctx.fillStyle = hov ? 'rgba(14,14,48,0.98)' : 'rgba(8,8,28,0.96)';
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+
+    if (hov) { ctx.shadowBlur = 12; ctx.shadowColor = '#5050ff'; }
+    ctx.strokeStyle = hov      ? '#7070ff'
+                    : canBuy   ? '#28285a'
+                               : '#181828';
+    ctx.lineWidth = hov ? 2.5 : 1.5;
+    ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+    ctx.shadowBlur = 0;
+
+    ctx.globalAlpha = canBuy ? 1 : 0.38;
+
+    // Name
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font         = 'bold 12px monospace';
+    ctx.fillStyle    = '#a0a8ff';
+    ctx.fillText(upg.name, b.x + b.w / 2, b.y + 22);
+
+    // Separator
+    ctx.fillStyle = '#22225a';
+    ctx.fillRect(b.x + 8, b.y + 34, b.w - 16, 1);
+
+    // Description
+    ctx.font      = '10px monospace';
+    ctx.fillStyle = '#7878b0';
+    ctx.fillText(upg.desc, b.x + b.w / 2, b.y + 54);
+
+    // Level pips
+    const pipW   = 12;
+    const pipGap = 16;
+    const pipsW  = upg.maxLevel * pipGap - (pipGap - pipW);
+    const pipX0  = b.x + Math.round((b.w - pipsW) / 2);
+    const pipY   = b.y + 76;
+    for (let p = 0; p < upg.maxLevel; p++) {
+      ctx.fillStyle = p < lvl           ? '#8888ff'
+                    : p === lvl         ? '#4040b0'
+                                        : '#111128';
+      ctx.fillRect(pipX0 + p * pipGap, pipY, pipW, 8);
+      if (p === lvl) {
+        ctx.strokeStyle = '#6060d0';
+        ctx.lineWidth   = 1;
+        ctx.strokeRect(pipX0 + p * pipGap + 0.5, pipY + 0.5, pipW - 1, 7);
+      }
+    }
+
+    // Level label
+    ctx.font      = '9px monospace';
+    ctx.fillStyle = '#505080';
+    ctx.fillText('Lv ' + lvl + ' → ' + (lvl + 1), b.x + b.w / 2, b.y + 100);
+
+    // Cost
+    ctx.font      = 'bold 16px monospace';
+    ctx.fillStyle = canBuy ? '#f0c020' : '#705810';
+    ctx.fillText(cost + 'g', b.x + b.w / 2, b.y + 130);
+
+    ctx.globalAlpha = 1;
+
+    if (!canBuy) {
+      ctx.font      = '9px monospace';
+      ctx.fillStyle = '#502828';
+      ctx.fillText('Need ' + (cost - GS.meta.gold) + 'g more', b.x + b.w / 2, b.y + 154);
+    }
+  }
+
+  function drawUpgradeScreen(ctx) {
+    ctx.fillStyle = 'rgba(0,8,18,0.97)';
+    ctx.fillRect(0, 0, CW, CH);
+
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Header
+    ctx.font      = 'bold 34px monospace';
+    ctx.lineJoin  = 'round';
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#000810';
+    ctx.strokeText('CHOOSE AN UPGRADE', CW / 2, 50);
+    ctx.fillStyle = '#c8d0ff';
+    ctx.fillText('CHOOSE AN UPGRADE', CW / 2, 50);
+
+    // Gold
+    ctx.font      = 'bold 14px monospace';
+    ctx.fillStyle = '#f0c020';
+    ctx.fillText('Gold: ' + GS.meta.gold + 'g', CW / 2, 88);
+    ctx.font      = '12px monospace';
+    ctx.fillStyle = '#606070';
+    ctx.fillText('(+' + GS.runStats.goldThisRun + 'g earned this run)', CW / 2, 108);
+
+    // Upgrade cards
+    for (let i = 0; i < upgradeOffers.length; i++) drawUpgradeCard(ctx, i);
+
+    // Skip button
+    const sb = skipBtnBounds();
+    ctx.fillStyle   = hoverSkip ? '#303048' : '#1a1a28';
+    ctx.fillRect(sb.x, sb.y, sb.w, sb.h);
+    ctx.strokeStyle = hoverSkip ? '#5050a0' : '#282840';
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(sb.x + 0.5, sb.y + 0.5, sb.w - 1, sb.h - 1);
+    ctx.font      = 'bold 13px monospace';
+    ctx.fillStyle = hoverSkip ? '#8888b0' : '#404058';
+    ctx.fillText('SKIP', sb.x + sb.w / 2, sb.y + sb.h / 2);
   }
 
   function wizardPortrait(ctx) {

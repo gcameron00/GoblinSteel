@@ -6,7 +6,7 @@ Five broad directions for taking the project forward, roughly in order of priori
 
 2. **Expand the world** — Procedural map generation, more enemy types beyond goblins, boss encounters. ✅ *Complete — see [plan-expand-world.md](plan-expand-world.md).*
 
-3. **Add progression / meta-game** — Between-run upgrades, save system, unlockable classes. Shifts it toward a roguelite. *Current focus — see [plan-progression.md](plan-progression.md).*
+3. **Add progression / meta-game** — Between-run upgrades, save system, unlockable classes. Shifts it toward a roguelite. ✅ *Complete — see [plan-progression.md](plan-progression.md).*
 
 4. **Polish and juice** — Sound/music (Web Audio API), particle effects on hits, screenshake, more animation frames. The visual identity is already strong; this makes it feel finished.
 

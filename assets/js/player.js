@@ -24,15 +24,21 @@
   GS.player.reset = function () {
     const cls  = GS.selectedClass;
     const tile = GS.map.spawnTile;
+    const upgs = GS.meta ? GS.meta.upgrades : {};
+
     GS.player.x       = tile ? (tile.col + 0.5) * T : 5.5 * T;
     GS.player.y       = tile ? (tile.row + 0.5) * T : 5.0 * T;
     GS.player.facing  = 'down';
-    GS.player.hp      = cls ? cls.maxHp : 80;
-    GS.player.maxHp   = cls ? cls.maxHp : 80;
     GS.player.name    = cls ? cls.name  : 'ELF';
     GS.player.moving  = false;
     GS.player.frameTimer = 0;
     GS.player.frame   = 0;
+
+    // Base stats — reset before applying upgrades
+    const baseHp      = cls ? cls.maxHp : 80;
+    GS.player.maxHp   = baseHp + (upgs.hp_up || 0) * 20;
+    GS.player.hp      = GS.player.maxHp;
+    GS.player.speed   = 2.5 + (upgs.speed_up || 0) * 0.3;
   };
 
   // Returns true if the player centre (px, py) keeps all four AABB corners on floor tiles

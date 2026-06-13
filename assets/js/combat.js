@@ -11,6 +11,7 @@
 
   let attackCooldown = 0;
   let regenTimer     = 0;
+  let vitalityTimer  = 0;   // vitality upgrade regen (all classes)
   let swingTimer     = 0;
 
   GS.combat = {
@@ -20,6 +21,7 @@
     reset: function () {
       attackCooldown    = 0;
       regenTimer        = 0;
+      vitalityTimer     = 0;
       swingTimer        = 0;
       this.swingActive  = false;
     },
@@ -31,17 +33,21 @@
         this.swingActive = swingTimer > 0;
       }
 
-      const cls = GS.selectedClass ? GS.selectedClass.name : 'ELF';
-      const cfg = CFG[cls];
+      const cls  = GS.selectedClass ? GS.selectedClass.name : 'ELF';
+      const cfg  = CFG[cls];
       if (!cfg) return;
+
+      const upgs     = GS.meta ? GS.meta.upgrades : {};
+      const dmgBonus = upgs.power_up || 0;
+      const cdMult   = Math.pow(0.85, upgs.cooldown || 0);
 
       if (GS.input.fire && attackCooldown <= 0) {
         if (cfg.type === 'ranged') {
-          GS.arrows.fire(cfg.speed, cfg.damage);
+          GS.arrows.fire(cfg.speed, cfg.damage + dmgBonus);
         } else {
-          this._meleeAttack(cfg.range, cfg.damage);
+          this._meleeAttack(cfg.range, cfg.damage + dmgBonus);
         }
-        attackCooldown = cfg.cooldown;
+        attackCooldown = Math.round(cfg.cooldown * cdMult);
       }
 
       // Cleric passive HP regen
@@ -53,6 +59,18 @@
         }
       } else {
         regenTimer = 0;
+      }
+
+      // Vitality upgrade: passive regen for all classes
+      if (upgs.regen) {
+        vitalityTimer++;
+        const interval = 240 - (upgs.regen - 1) * 60;  // 240 / 180 / 120 frames
+        if (vitalityTimer >= interval) {
+          vitalityTimer = 0;
+          GS.player.hp = Math.min(GS.player.maxHp, GS.player.hp + 1);
+        }
+      } else {
+        vitalityTimer = 0;
       }
     },
 
@@ -78,7 +96,7 @@
           g.hp       -= damage;
           g.hitFlash  = 10;
           g.state     = 'aggro';
-          if (g.hp <= 0) gs.splice(i, 1);
+          if (g.hp <= 0) GS.enemies.kill(i);
         }
       }
     },
