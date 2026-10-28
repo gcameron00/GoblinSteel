@@ -19,5 +19,11 @@
     // Clamp to world bounds
     GS.camera.x = Math.max(0, Math.min(cx, worldW - GS.VIEW_W));
     GS.camera.y = Math.max(0, Math.min(cy, worldH - GS.VIEW_H));
+
+    // Screenshake offset (HUD is drawn in screen space, so it stays steady)
+    if (GS.fx) {
+      GS.camera.x += GS.fx.shakeX;
+      GS.camera.y += GS.fx.shakeY;
+    }
   };
 }());

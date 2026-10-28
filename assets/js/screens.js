@@ -205,6 +205,7 @@
     GS.map.rebuild();
     GS.enemies.reset();
     GS.combat.reset();
+    GS.fx.reset();
     phase         = 'select';
     cardAlpha     = 1;
     selectedClass = -1;

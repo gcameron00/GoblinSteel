@@ -29,6 +29,7 @@
       a.y += a.vy;
 
       if (GS.map.isWall(Math.floor(a.x / T), Math.floor(a.y / T))) {
+        GS.fx.wallImpact(a.x - a.vx, a.y - a.vy);   // step back out of the wall
         GS.arrows.splice(i, 1);
       }
     }

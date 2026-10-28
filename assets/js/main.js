@@ -21,9 +21,24 @@
   function update() {
     const phase = GS.screen.phase();
     if (phase !== 'game') {
+      // Let kill sparks and shake settle behind the win/death overlay
+      if (phase === 'win' || phase === 'dead') {
+        GS.fx.update();
+        GS.camera.update();
+      }
       GS.screen.update();
       return;
     }
+
+    // Hit-stop: freeze gameplay for a few frames on kills; effects keep moving
+    if (GS.fx.hitStop > 0) {
+      GS.fx.hitStop--;
+      GS.fx.update();
+      GS.camera.update();
+      return;
+    }
+
+    GS.fx.update();
     GS.player.update();
     GS.combat.update();
     GS.arrows.update();

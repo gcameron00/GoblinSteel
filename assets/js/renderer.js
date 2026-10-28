@@ -958,7 +958,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // Public render — order matters: tiles → sprites → lighting → HUD
+  // Public render — order matters: tiles → sprites → fx → lighting → overlay → HUD
   // The vignette darkens both tiles and sprites at the edges for atmosphere
   // -------------------------------------------------------------------------
   GS.render = function (ctx) {
@@ -969,7 +969,9 @@
     drawEnemies(ctx);
     drawPlayer(ctx);
     drawArrows(ctx);
+    GS.fx.drawParticles(ctx);
     drawLighting(ctx);
+    GS.fx.drawOverlay(ctx);
     drawHUD(ctx);
   };
 }());
