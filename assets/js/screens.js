@@ -1091,8 +1091,8 @@
         // Cost requirement
         ctx.font      = '10px monospace';
         ctx.fillStyle = canBuy ? '#e0c030' : '#909098';
-        let costLine  = 'Unlock: ' + cond.gold + 'g';
-        if (cond.bossKills) costLine += ' + ' + cond.bossKills + ' boss';
+        let costLine  = 'Costs ' + cond.gold + 'g';
+        if (cond.bossKills) costLine += ', needs ' + cond.bossKills + ' boss';
         ctx.fillText(costLine, b.x + b.w / 2, b.y + 162);
 
         if (canBuy) {

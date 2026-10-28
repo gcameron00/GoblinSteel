@@ -921,14 +921,15 @@
     ctx.textAlign    = 'left';
     ctx.fillStyle    = GS.selectedClass ? GS.selectedClass.col : GS.C.TEXT_YELLOW;
     ctx.fillText(GS.player.name, 10, h / 2);
+    const labelX = 10 + Math.ceil(ctx.measureText(GS.player.name).width) + 12;
 
-    // HP label
+    // HP label (positioned after the class name so longer names don't overlap)
     ctx.fillStyle = GS.C.TEXT_DIM;
     ctx.font      = '11px monospace';
-    ctx.fillText('HP', 60, h / 2);
+    ctx.fillText('HP', labelX, h / 2);
 
     // HP bar
-    const barX = 82;
+    const barX = labelX + 22;
     const barW = 120;
     const barH = 10;
     const barY = Math.floor(h / 2 - barH / 2);
