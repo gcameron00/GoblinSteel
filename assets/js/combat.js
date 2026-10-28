@@ -93,10 +93,7 @@
       for (let i = gs.length - 1; i >= 0; i--) {
         const g = gs[i];
         if (Math.abs(g.x - tx) < range && Math.abs(g.y - ty) < range) {
-          g.hp       -= damage;
-          g.hitFlash  = 10;
-          g.state     = 'aggro';
-          if (g.hp <= 0) GS.enemies.kill(i);
+          GS.enemies.damage(i, damage);
         }
       }
     },

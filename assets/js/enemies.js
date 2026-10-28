@@ -120,6 +120,21 @@
     GS.enemies.splice(idx, 1);
   };
 
+  // Single entry point for all damage dealt to enemies (arrows, bolts, melee)
+  GS.enemies.damage = function (idx, amount) {
+    const e = GS.enemies[idx];
+    e.hp      -= amount;
+    e.hitFlash = 10;
+    e.state    = 'aggro';
+    if (e.hp <= 0) GS.enemies.kill(idx);
+  };
+
+  // Single entry point for all damage dealt to the player; armor applies here
+  function hurtPlayer(amount) {
+    const armor = GS.meta ? (GS.meta.upgrades.armor || 0) : 0;
+    GS.player.hp = Math.max(0, GS.player.hp - Math.max(1, amount - armor));
+  }
+
   GS.enemies.reset = function () {
     GS.enemies.splice(0, GS.enemies.length);
     spawnEnemies().forEach(e => GS.enemies.push(e));
@@ -162,8 +177,7 @@
           if (canOccupy(e.x,            e.y + ny * spd)) e.y += ny * spd;
         } else {
           if (e.attackTimer <= 0) {
-            const armor = GS.meta ? (GS.meta.upgrades.armor || 0) : 0;
-            p.hp = Math.max(0, p.hp - Math.max(1, cfg.meleeDamage - armor));
+            hurtPlayer(cfg.meleeDamage);
             e.attackTimer = cfg.meleeCd;
           }
         }
@@ -207,11 +221,8 @@
         const adx = a.x - e.x;
         const ady = a.y - e.y;
         if (Math.abs(adx) < 13 && Math.abs(ady) < 13) {
-          e.hp       -= (a.damage || 1);
-          e.hitFlash  = 10;
-          e.state     = 'aggro';
           arrows.splice(ai, 1);
-          if (e.hp <= 0) GS.enemies.kill(ei);
+          GS.enemies.damage(ei, a.damage || 1);
           break;
         }
       }
