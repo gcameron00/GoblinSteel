@@ -120,6 +120,8 @@
     if (e.boss && GS.meta) GS.meta.bossKills++;
     GS.enemies.splice(idx, 1);
     GS.fx.enemyKilled(e, gold);
+    GS.sfx.play(e.boss ? 'bossDie' : 'enemyDie');
+    GS.sfx.play('coin');
   };
 
   // Single entry point for all damage dealt to enemies (arrows, bolts, melee)
@@ -129,7 +131,10 @@
     e.hitFlash = 10;
     e.state    = 'aggro';
     if (e.hp <= 0) GS.enemies.kill(idx);
-    else           GS.fx.enemyHit(e);
+    else {
+      GS.fx.enemyHit(e);
+      GS.sfx.play('enemyHit');
+    }
   };
 
   // Single entry point for all damage dealt to the player; armor applies here
@@ -137,6 +142,7 @@
     const armor = GS.meta ? (GS.meta.upgrades.armor || 0) : 0;
     GS.player.hp = Math.max(0, GS.player.hp - Math.max(1, amount - armor));
     GS.fx.playerHurt();
+    GS.sfx.play('hurt');
   }
 
   GS.enemies.reset = function () {

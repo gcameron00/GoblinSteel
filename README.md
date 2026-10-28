@@ -36,6 +36,7 @@ Each run generates a fresh dungeon populated by goblins, skeletons, orcs and a b
 | Move | WASD or arrow keys |
 | Attack | Space or Z |
 | Menus | Mouse |
+| Mute / unmute sound | M |
 
 ---
 
