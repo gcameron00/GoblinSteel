@@ -3,10 +3,10 @@
 (function () {
   // Per-class attack parameters
   const CFG = {
-    ELF:     { type: 'ranged', speed: 8,  damage: 1, cooldown: 18 },
-    WIZARD:  { type: 'ranged', speed: 5,  damage: 2, cooldown: 40 },
-    WARRIOR: { type: 'melee',  range: 22, damage: 2, cooldown: 30 },
-    CLERIC:  { type: 'melee',  range: 22, damage: 1, cooldown: 35, regen: 180 },
+    ELF:     { type: 'ranged', speed: 8,  damage: 1, cooldown: 18, sfx: 'bow' },
+    WIZARD:  { type: 'ranged', speed: 5,  damage: 2, cooldown: 40, sfx: 'bolt' },
+    WARRIOR: { type: 'melee',  range: 22, damage: 2, cooldown: 30, sfx: 'swing' },
+    CLERIC:  { type: 'melee',  range: 22, damage: 1, cooldown: 35, sfx: 'swingCleric', regen: 180 },
   };
 
   let attackCooldown = 0;
@@ -48,6 +48,7 @@
           this._meleeAttack(cfg.range, cfg.damage + dmgBonus);
         }
         attackCooldown = Math.round(cfg.cooldown * cdMult);
+        GS.sfx.play(cfg.sfx);
       }
 
       // Cleric passive HP regen

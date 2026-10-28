@@ -111,6 +111,7 @@
 
     if (phase === 'win' || phase === 'dead') {
       if (hit(cx, cy, { x: RESTART_X, y: RESTART_Y, w: RESTART_W, h: RESTART_H })) {
+        GS.sfx.play('uiClick');
         prepareUpgradeOffers(phase === 'win' ? 3 : 2);
         phase        = 'upgrade';
         hoverUpgrade = -1;
@@ -128,12 +129,16 @@
             GS.meta.gold -= cost;
             GS.meta.upgrades[upg.id] = (GS.meta.upgrades[upg.id] || 0) + 1;
             GS.meta.save();
+            GS.sfx.play('unlock');
             resetGame();
           }
           return;
         }
       }
-      if (hit(cx, cy, skipBtnBounds())) resetGame();
+      if (hit(cx, cy, skipBtnBounds())) {
+        GS.sfx.play('uiClick');
+        resetGame();
+      }
       return;
     }
 
@@ -143,18 +148,21 @@
       const cls = CLASSES[i];
       if (isClassActive(cls)) {
         selectedClass = i;
+        GS.sfx.play('uiClick');
       } else {
         const cond = GS.CLASS_UNLOCK[cls.name];
         if (cond && GS.meta.gold >= cond.gold && GS.meta.bossKills >= (cond.bossKills || 0)) {
           GS.meta.gold -= cond.gold;
           GS.meta.unlockedClasses[cls.name] = true;
           GS.meta.save();
+          GS.sfx.play('unlock');
         }
       }
       return;
     }
     if (selectedClass >= 0 && isClassActive(CLASSES[selectedClass]) &&
         hit(cx, cy, { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H })) {
+      GS.sfx.play('uiClick');
       phase = 'play-fade';
       timer = 0;
     }
@@ -239,6 +247,7 @@
       GS.runStats.goldThisRun = GS.runStats.gold;
       GS.runStats.gold = 0;
       GS.meta.save();
+      GS.sfx.play('win');
       phase = 'win';
     },
     dead: function () {
@@ -246,6 +255,7 @@
       GS.runStats.goldThisRun = GS.runStats.gold;
       GS.runStats.gold = 0;
       GS.meta.save();
+      GS.sfx.play('death');
       phase = 'dead';
     },
 

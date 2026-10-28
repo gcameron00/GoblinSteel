@@ -955,6 +955,31 @@
     ctx.font      = 'bold 12px monospace';
     ctx.fillStyle = '#f0c020';
     ctx.fillText(goldStr, w - 8, h / 2);
+
+    // Sound on/off indicator (M toggles), left of the gold counter
+    drawSpeaker(ctx, w - 8 - Math.ceil(ctx.measureText(goldStr).width) - 26, h / 2, GS.sfx.muted);
+  }
+
+  function drawSpeaker(ctx, x, cy, muted) {
+    ctx.fillStyle = GS.C.TEXT_DIM;
+    ctx.fillRect(x, cy - 2, 3, 5);
+    ctx.beginPath();
+    ctx.moveTo(x + 3, cy - 2); ctx.lineTo(x + 7, cy - 5);
+    ctx.lineTo(x + 7, cy + 6); ctx.lineTo(x + 3, cy + 3);
+    ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = muted ? '#aa3030' : GS.C.TEXT_DIM;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    if (muted) {
+      ctx.moveTo(x + 10, cy - 3); ctx.lineTo(x + 15, cy + 3);
+      ctx.moveTo(x + 15, cy - 3); ctx.lineTo(x + 10, cy + 3);
+    } else {
+      ctx.arc(x + 8, cy + 0.5, 4, -Math.PI / 3, Math.PI / 3);
+      ctx.moveTo(x + 8 + 7 * Math.cos(-Math.PI / 3), cy + 0.5 + 7 * Math.sin(-Math.PI / 3));
+      ctx.arc(x + 8, cy + 0.5, 7, -Math.PI / 3, Math.PI / 3);
+    }
+    ctx.stroke();
   }
 
   // -------------------------------------------------------------------------

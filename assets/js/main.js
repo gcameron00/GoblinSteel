@@ -53,6 +53,7 @@
       if ((GS.meta.upgrades.second_wind || 0) >= 1 && !GS.runStats.secondWindUsed) {
         GS.player.hp           = 10;
         GS.runStats.secondWindUsed = true;
+        GS.sfx.play('revive');
       } else {
         GS.screen.dead();
       }
