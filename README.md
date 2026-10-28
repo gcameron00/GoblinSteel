@@ -23,9 +23,25 @@ Players explore procedurally generated dungeons viewed from above, with the view
 
 ---
 
+### Runs and Progression
+
+Each run generates a fresh dungeon populated by goblins, skeletons, orcs and a boss. Slay the boss to win the run. Gold earned from kills is kept between runs and can be spent on permanent upgrades or on unlocking new classes. Progress is saved in your browser.
+
+---
+
+## Controls
+
+| Action | Keys |
+|---|---|
+| Move | WASD or arrow keys |
+| Attack | Space or Z |
+| Menus | Mouse |
+
+---
+
 ## Character Classes
 
-At the start of a run, players choose one of four classic archetypes. Each brings a distinct playstyle defined by their attributes and weaponry.
+At the start of a run, players choose one of four classic archetypes. Each brings a distinct playstyle defined by their attributes and weaponry. The Warrior and Elf are available from the start; the Cleric costs 200 gold to unlock, and the Wizard costs 400 gold and requires at least one boss kill.
 
 | Class | Strengths | Weapon |
 |---|---|---|
@@ -49,7 +65,17 @@ The game draws on the visual language of 1980s arcade games — chunky sprites, 
 
 ## Technology
 
-Goblin Steel is a web application playable in any modern browser, with no installation required.
+Goblin Steel is a web application playable in any modern browser, with no installation required. It is written in plain JavaScript with no dependencies or build step, and all graphics are drawn directly on an HTML canvas.
+
+### Running locally
+
+Scripts are loaded from root-relative paths, so the game must be served over HTTP rather than opened as a file. From the repository root:
+
+```sh
+python3 -m http.server 8000
+```
+
+Then open <http://localhost:8000/>.
 
 ---
 
@@ -64,4 +90,4 @@ Goblin Steel is a web application playable in any modern browser, with no instal
 
 ## Status
 
-Early development.
+Playable. The core loop, procedural dungeons, multiple enemy types with a boss, and between-run progression are complete. Next up is polish: sound, hit effects and screenshake. See [docs/roadmap.md](docs/roadmap.md).

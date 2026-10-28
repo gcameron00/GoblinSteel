@@ -2,7 +2,7 @@
 
 (function () {
   // -------------------------------------------------------------------------
-  // Class unlock thresholds (checked dynamically — not deducted, just gated)
+  // Class unlock costs — gold is spent on unlock; boss kills are a requirement only
   // -------------------------------------------------------------------------
   GS.CLASS_UNLOCK = {
     CLERIC: { gold: 200, bossKills: 0 },
