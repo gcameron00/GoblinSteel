@@ -152,6 +152,11 @@ A small procedural loop, kept deliberately modest:
 
 If this step turns out to be noisy or distracting in practice, ship Steps 1–4 without it.
 
+> *As built:* the arpeggio runs Dm–Dm–B♭–A, so the A-major bar adds a little tension. The music is kept well below the effects (it peaks around 0.07 against 0.2–0.5). Two additions came out of play-testing:
+>
+> - **Enemy voices**, played from the enemy's position: quieter with distance (silent beyond 420 px) and panned left or right. Each type calls out when it first spots you (goblin cackle, skeleton bone-rattle, orc grunt, boss roar). Every 3–6 s a nearby enemy mutters, often from out of sight in the dark, and the boss growls every 6–9 s while it's hunting you.
+> - **A ghostly wail**: a slow, wavering moan from a random direction every 25–45 s while exploring.
+
 ---
 
 ## Files to modify / create

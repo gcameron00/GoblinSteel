@@ -148,6 +148,28 @@
     GS.sfx.play('hurt');
   }
 
+  // Every few seconds a nearby enemy makes a noise (out of sight in the dark,
+  // that's the point); the boss growls more often once it's hunting you
+  let voiceTimer = 180;
+  let bossTimer  = 360;
+
+  function enemyVoices(es) {
+    const boss = es.find(e => e.boss);
+    if (boss && boss.state === 'aggro' && --bossTimer <= 0) {
+      GS.sfx.playAt('bossIdle', boss.x, boss.y);
+      bossTimer = 360 + Math.floor(Math.random() * 180);
+    }
+
+    if (--voiceTimer > 0) return;
+    voiceTimer = 180 + Math.floor(Math.random() * 180);   // 3-6 s at 60 fps
+    const p      = GS.player;
+    const nearby = es.filter(e => !e.boss && Math.abs(e.x - p.x) + Math.abs(e.y - p.y) < 500);
+    if (nearby.length) {
+      const e = nearby[Math.floor(Math.random() * nearby.length)];
+      GS.sfx.playAt(e.type + 'Idle', e.x, e.y);
+    }
+  }
+
   GS.enemies.reset = function () {
     GS.enemies.splice(0, GS.enemies.length);
     spawnEnemies().forEach(e => GS.enemies.push(e));
@@ -173,6 +195,7 @@
       // State transitions
       if (e.state === 'idle' && dist < cfg.aggroRange) {
         e.state = 'aggro';
+        GS.sfx.playAt(e.type + 'Alert', e.x, e.y);
       } else if (e.state === 'aggro' && dist > cfg.leashRange) {
         e.state       = 'idle';
         e.patrolTimer = 0;
@@ -238,6 +261,8 @@
         e.frameTimer = 0;
       }
     }
+
+    enemyVoices(es);
 
     // Arrow vs enemy collision
     const arrows = GS.arrows;
