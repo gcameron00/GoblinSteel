@@ -3,6 +3,8 @@
 (function () {
   const MAX_PARTICLES = 300;
   const HURT_FRAMES   = 18;
+  const CORPSE_FRAMES = 20;
+  const PLAYER_FLASH  = 6;
 
   // Spark colours per enemy type (taken from the sprite palette in renderer.js)
   const COLOURS = {
@@ -29,6 +31,7 @@
     shakeY:    0,
     hitStop:   0,    // frames to freeze gameplay
     hurtFlash: 0,    // frames of red screen-edge pulse
+    corpses:   [],   // dying enemies fading out: { type, x, y, facing, boss, life }
   };
 
   // Radial spark burst in world coordinates
@@ -73,6 +76,7 @@
   };
 
   GS.fx.enemyKilled = function (e, gold) {
+    GS.fx.corpses.push({ type: e.type, x: e.x, y: e.y, facing: e.facing, boss: e.boss, life: CORPSE_FRAMES });
     if (e.boss) {
       GS.fx.burst(e.x, e.y, COLOURS.boss, 60, 4.5, { size: 3 });
       GS.fx.burst(e.x, e.y, DUST, 20, 1.5, { gravity: 0.05 });
@@ -90,6 +94,7 @@
   GS.fx.playerHurt = function () {
     GS.fx.shake(4);
     GS.fx.hurtFlash = HURT_FRAMES;
+    GS.player.hurtFlash = PLAYER_FLASH;
   };
 
   GS.fx.wallImpact = function (x, y) {
@@ -117,6 +122,12 @@
     }
 
     if (GS.fx.hurtFlash > 0) GS.fx.hurtFlash--;
+    if (GS.player.hurtFlash > 0) GS.player.hurtFlash--;
+
+    const cs = GS.fx.corpses;
+    for (let i = cs.length - 1; i >= 0; i--) {
+      if (--cs[i].life <= 0) cs.splice(i, 1);
+    }
 
     GS.fx.shakeMag *= 0.85;
     if (GS.fx.shakeMag < 0.3 || reduceMotion.matches) GS.fx.shakeMag = 0;
@@ -132,7 +143,11 @@
     GS.fx.shakeY    = 0;
     GS.fx.hitStop   = 0;
     GS.fx.hurtFlash = 0;
+    GS.fx.corpses.length = 0;
+    GS.player.hurtFlash  = 0;
   };
+
+  GS.fx.CORPSE_FRAMES = CORPSE_FRAMES;
 
   // ---- Rendering (called from renderer.js) ----------------------------------
 

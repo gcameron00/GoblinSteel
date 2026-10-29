@@ -127,6 +127,11 @@
   // -------------------------------------------------------------------------
   // Goblin sprite (extracted from original drawGoblins)
   // -------------------------------------------------------------------------
+  // Walk cycle: raise one leg (hidden under the body) on alternate frames
+  function lift(e, side) {
+    return e.moving && e.frame === side ? 2 : 0;
+  }
+
   function drawGoblinSprite(ctx, e) {
     const flashing  = e.hitFlash > 0;
     const clubRight = (e.facing === 'right' || e.facing === 'down');
@@ -135,7 +140,7 @@
     ctx.beginPath(); ctx.ellipse(1, 9, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = flashing ? '#ffffff' : '#2a1e08';
-    ctx.fillRect(-3, 7, 3, 5); ctx.fillRect(1, 7, 3, 5);
+    ctx.fillRect(-3, 7 - lift(e, 0), 3, 5); ctx.fillRect(1, 7 - lift(e, 1), 3, 5);
 
     ctx.fillStyle = flashing ? '#ffffff' : '#3a5a18';
     ctx.beginPath(); ctx.ellipse(0, 1, 9, 10, 0, 0, Math.PI * 2); ctx.fill();
@@ -175,10 +180,10 @@
 
     // Legs (bone sticks)
     ctx.fillStyle = W;
-    ctx.fillRect(-3, 4, 2, 8); ctx.fillRect(2, 4, 2, 8);
+    ctx.fillRect(-3, 4 - lift(e, 0), 2, 8); ctx.fillRect(2, 4 - lift(e, 1), 2, 8);
     // Knee joints
     ctx.fillStyle = flashing ? '#ffffff' : '#a8a898';
-    ctx.fillRect(-4, 8, 4, 2); ctx.fillRect(1, 8, 4, 2);
+    ctx.fillRect(-4, 8 - lift(e, 0), 4, 2); ctx.fillRect(1, 8 - lift(e, 1), 4, 2);
 
     // Ribcage (body)
     ctx.fillStyle = W;
@@ -229,7 +234,7 @@
 
     // Legs (thick)
     ctx.fillStyle = flashing ? '#ffffff' : '#1a3a08';
-    ctx.fillRect(-5, 6, 4, 7); ctx.fillRect(2, 6, 4, 7);
+    ctx.fillRect(-5, 6 - lift(e, 0), 4, 7); ctx.fillRect(2, 6 - lift(e, 1), 4, 7);
 
     // Body (big oval)
     ctx.fillStyle = flashing ? '#ffffff' : (charging ? '#50a020' : '#2a4a10');
@@ -281,7 +286,7 @@
     ctx.beginPath(); ctx.ellipse(1, 9, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = flashing ? '#ffffff' : '#2a1e08';
-    ctx.fillRect(-3, 7, 3, 5); ctx.fillRect(1, 7, 3, 5);
+    ctx.fillRect(-3, 7 - lift(e, 0), 3, 5); ctx.fillRect(1, 7 - lift(e, 1), 3, 5);
 
     ctx.fillStyle = flashing ? '#ffffff' : '#255018';
     ctx.beginPath(); ctx.ellipse(0, 1, 10, 11, 0, 0, Math.PI * 2); ctx.fill();
@@ -350,25 +355,51 @@
   // -------------------------------------------------------------------------
   // Dispatch — replaces drawGoblins
   // -------------------------------------------------------------------------
+  function drawEnemySprite(ctx, e) {
+    switch (e.type) {
+      case 'skeleton': drawSkeletonSprite(ctx, e); break;
+      case 'orc':      drawOrcSprite(ctx, e);      break;
+      case 'boss':     drawBossSprite(ctx, e);      break;
+      default:         drawGoblinSprite(ctx, e);    break;
+    }
+  }
+
+  // Dying enemies: white flash, then squash down and fade out
+  function drawCorpses(ctx) {
+    const cam = GS.camera;
+    const max = GS.fx.CORPSE_FRAMES;
+
+    for (const c of GS.fx.corpses) {
+      const k = c.life / max;
+      const e = {
+        type: c.type, facing: c.facing, boss: c.boss, state: 'idle',
+        hitFlash: c.life > max - 4 ? 1 : 0, chargeTimer: 0, frame: 0, moving: false,
+      };
+
+      ctx.save();
+      ctx.globalAlpha = k;
+      ctx.translate(Math.round(c.x - cam.x), Math.round(c.y - cam.y) + GS.HUD_H + 10);  // anchor at feet
+      ctx.scale(1 + (1 - k) * 0.4, k);
+      ctx.translate(0, -10);
+      drawEnemySprite(ctx, e);
+      ctx.restore();
+    }
+  }
+
   function drawEnemies(ctx) {
     const cam = GS.camera;
     const es  = GS.enemies;
 
+    drawCorpses(ctx);
+
     for (let i = 0; i < es.length; i++) {
       const e  = es[i];
       const sx = Math.round(e.x - cam.x);
-      const sy = Math.round(e.y - cam.y) + GS.HUD_H;
+      const sy = Math.round(e.y - cam.y) + GS.HUD_H - (e.moving && e.frame ? 1 : 0);  // walk bob
 
       ctx.save();
       ctx.translate(sx, sy);
-
-      switch (e.type) {
-        case 'skeleton': drawSkeletonSprite(ctx, e); break;
-        case 'orc':      drawOrcSprite(ctx, e);      break;
-        case 'boss':     drawBossSprite(ctx, e);      break;
-        default:         drawGoblinSprite(ctx, e);    break;
-      }
-
+      drawEnemySprite(ctx, e);
       drawEnemyHealthBar(ctx, e);
       ctx.restore();
     }
@@ -780,6 +811,25 @@
   // -------------------------------------------------------------------------
   // Dispatch to the correct player sprite
   // -------------------------------------------------------------------------
+  function drawPlayerSprite(ctx) {
+    switch (GS.player.name) {
+      case 'WARRIOR': drawWarrior(ctx); break;
+      case 'CLERIC':  drawCleric(ctx);  break;
+      case 'WIZARD':  drawWizard(ctx);  break;
+      default:        drawElf(ctx);     break;  // ELF
+    }
+  }
+
+  const FLASH_SIZE = 80;
+  let flashCanvas  = null;
+  function flashCtx() {
+    if (!flashCanvas) {
+      flashCanvas = document.createElement('canvas');
+      flashCanvas.width = flashCanvas.height = FLASH_SIZE;
+    }
+    return flashCanvas.getContext('2d');
+  }
+
   function drawPlayer(ctx) {
     const cam = GS.camera;
     const p   = GS.player;
@@ -789,11 +839,21 @@
     ctx.save();
     ctx.translate(sx, sy);
 
-    switch (GS.player.name) {
-      case 'WARRIOR': drawWarrior(ctx); break;
-      case 'CLERIC':  drawCleric(ctx);  break;
-      case 'WIZARD':  drawWizard(ctx);  break;
-      default:        drawElf(ctx);     break;  // ELF
+    if (p.hurtFlash > 0) {
+      // White silhouette: draw offscreen, then fill white over the sprite's pixels only
+      const fc = flashCtx();
+      fc.globalCompositeOperation = 'source-over';
+      fc.clearRect(0, 0, FLASH_SIZE, FLASH_SIZE);
+      fc.save();
+      fc.translate(FLASH_SIZE / 2, FLASH_SIZE / 2);
+      drawPlayerSprite(fc);
+      fc.restore();
+      fc.globalCompositeOperation = 'source-atop';
+      fc.fillStyle = '#ffffff';
+      fc.fillRect(0, 0, FLASH_SIZE, FLASH_SIZE);
+      ctx.drawImage(fc.canvas, -FLASH_SIZE / 2, -FLASH_SIZE / 2);
+    } else {
+      drawPlayerSprite(ctx);
     }
 
     // Melee swing arc (Warrior / Cleric)
@@ -874,6 +934,9 @@
   // -------------------------------------------------------------------------
   // Torch-light vignette — the biggest single atmosphere upgrade
   // -------------------------------------------------------------------------
+  let flickerT = 0;
+  let flickerN = 0;
+
   function drawLighting(ctx) {
     const p   = GS.player;
     const cam = GS.camera;
@@ -881,8 +944,13 @@
     const cx = Math.round(p.x - cam.x);
     const cy = Math.round(p.y - cam.y) + GS.HUD_H;
 
+    // Torch flicker: two slow sines plus smoothed jitter, about ±6% of the radius
+    flickerT++;
+    flickerN = flickerN * 0.9 + (Math.random() - 0.5) * 0.4;
+    const f = 1 + 0.06 * (0.5 * Math.sin(flickerT * 0.13) + 0.3 * Math.sin(flickerT * 0.31 + 1) + flickerN);
+
     // Darkness ring — fades in from about 1/3 of the way out
-    const dark = ctx.createRadialGradient(cx, cy, 75, cx, cy, 305);
+    const dark = ctx.createRadialGradient(cx, cy, 75 * f, cx, cy, 305 * f);
     dark.addColorStop(0,    'rgba(0,0,0,0)');
     dark.addColorStop(0.30, 'rgba(0,0,0,0)');
     dark.addColorStop(0.62, 'rgba(0,0,0,0.70)');
@@ -892,8 +960,8 @@
     ctx.fillRect(0, GS.HUD_H, GS.VIEW_W, GS.VIEW_H);
 
     // Warm torch glow at the very centre (subtle orange tint)
-    const warm = ctx.createRadialGradient(cx, cy, 0, cx, cy, 90);
-    warm.addColorStop(0, 'rgba(255,140,20,0.07)');
+    const warm = ctx.createRadialGradient(cx, cy, 0, cx, cy, 90 * f);
+    warm.addColorStop(0, 'rgba(255,140,20,' + (0.07 * f).toFixed(3) + ')');
     warm.addColorStop(1, 'rgba(255,100,0,0)');
 
     ctx.fillStyle = warm;
@@ -903,6 +971,10 @@
   // -------------------------------------------------------------------------
   // HUD
   // -------------------------------------------------------------------------
+  let trailHp   = 0;
+  let trailHold = 0;
+  let lastHp    = 0;
+
   function drawHUD(ctx) {
     const p = GS.player;
     const w = GS.VIEW_W;
@@ -936,6 +1008,23 @@
 
     ctx.fillStyle = GS.C.HP_EMPTY;
     ctx.fillRect(barX, barY, barW, barH);
+
+    // Damage trail: lost HP shows pale, holds briefly, then drains toward the real value
+    if (p.hp >= trailHp) {
+      trailHp   = p.hp;
+      trailHold = 0;
+    } else if (p.hp < lastHp) {
+      trailHold = 12;
+    } else if (trailHold > 0) {
+      trailHold--;
+    } else {
+      trailHp = Math.max(p.hp, trailHp - Math.max(0.25, (trailHp - p.hp) * 0.1));
+    }
+    lastHp = p.hp;
+
+    const trail = Math.round((trailHp / p.maxHp) * barW);
+    ctx.fillStyle = '#ffb080';
+    ctx.fillRect(barX, barY, trail, barH);
 
     const filled = Math.round((p.hp / p.maxHp) * barW);
     ctx.fillStyle = GS.C.HP_FULL;

@@ -98,6 +98,8 @@ GS.sfx = {
 
 **Signal chain:** each sound → its own `GainNode` envelope → master gain (0.35) → `DynamicsCompressor` → destination. The compressor keeps overlapping sounds from clipping.
 
+> *As built:* the compressor was dropped. Chromium's `DynamicsCompressor` cut short sounds to about a third of their level even when tuned as a limiter, so the chain is envelope → master gain (0.6) → destination, with per-sound volumes chosen so the busiest overlap stays under clipping. Safari on iPadOS also needed extra unlock handling (see PR #6).
+
 **Mute:** `M` key toggles. Stored in a separate `gs_settings` key so `GS.meta.wipe()` (not yet exposed in the UI) won't reset it. Show a small speaker / crossed-speaker glyph in the HUD just left of the gold counter.
 
 **Throttle:** each sound name has a minimum gap (e.g. `enemyHit` 4 frames, `step` 10). Calls inside the gap are dropped.

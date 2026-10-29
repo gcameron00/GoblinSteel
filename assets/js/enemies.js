@@ -59,6 +59,9 @@
       attackTimer: 0,
       hitFlash:    0,
       chargeTimer: 0,   // orc charge burst frames remaining
+      frame:       0,   // walk-cycle frame (0/1), only advances while moving
+      frameTimer:  0,
+      moving:      false,
     };
   }
 
@@ -160,6 +163,8 @@
       const dx  = p.x - e.x;
       const dy  = p.y - e.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const prevX = e.x;
+      const prevY = e.y;
 
       if (e.hitFlash   > 0) e.hitFlash--;
       if (e.attackTimer > 0) e.attackTimer--;
@@ -219,6 +224,18 @@
           if (canOccupy(e.x, e.y + e.patrolDy)) { e.y += e.patrolDy; }
           else { e.patrolDy = 0; e.patrolTimer = 0; }
         }
+      }
+
+      // Walk cycle: same pattern as the player, quicker while an orc charges
+      e.moving = Math.abs(e.x - prevX) + Math.abs(e.y - prevY) > 0.05;
+      if (e.moving) {
+        if (++e.frameTimer >= (e.chargeTimer > 0 ? 5 : 10)) {
+          e.frameTimer = 0;
+          e.frame      = 1 - e.frame;
+        }
+      } else {
+        e.frame      = 0;
+        e.frameTimer = 0;
       }
     }
 
