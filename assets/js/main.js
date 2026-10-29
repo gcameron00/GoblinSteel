@@ -20,6 +20,9 @@
 
   function update() {
     const phase = GS.screen.phase();
+    GS.sfx.music(phase !== 'game' ? 'off'
+      : (GS.enemies.some(e => e.boss && e.state === 'aggro') ? 'boss' : 'normal'));
+
     if (phase !== 'game') {
       // Let kill sparks and shake settle behind the win/death overlay
       if (phase === 'win' || phase === 'dead') {

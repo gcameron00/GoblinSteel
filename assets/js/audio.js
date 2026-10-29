@@ -10,11 +10,22 @@
     coin:     50,
     wallTap:  50,
     hurt:     80,
+    // Enemy voices: one of each kind at a time, so a room doesn't shout in unison
+    goblinAlert:    500,
+    skeletonAlert:  500,
+    orcAlert:       500,
+    bossAlert:     1500,
+    goblinIdle:     800,
+    skeletonIdle:   800,
+    orcIdle:        800,
+    bossIdle:      1500,
   };
 
   // Note frequencies (Hz)
   const N = {
-    A3: 220.00, D4: 293.66, F4: 349.23, A4: 440.00,
+    D2: 73.42,
+    A3: 220.00, AS3: 233.08, CS4: 277.18, D4: 293.66, E4: 329.63, F4: 349.23,
+    A4: 440.00, AS4: 466.16, D5: 587.33,
     C5: 523.25, E5: 659.25, G5: 783.99, B5: 987.77,
     C6: 1046.50, E6: 1318.51,
   };
@@ -23,6 +34,7 @@
   let master     = null;
   let noiseBuf   = null;
   let unlockedOnce = false;
+  let route      = null;   // where envelopes connect: master by default, or a panner / music bus
   const lastPlay = {};
 
   function loadSettings() {
@@ -46,7 +58,7 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(vol, t + (attack || 0.005));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    g.connect(master);
+    g.connect(route || master);
     return g;
   }
 
@@ -69,7 +81,15 @@
       lfo.stop(t + o.dur);
     }
 
-    osc.connect(envelope(t, o.dur, o.vol, o.attack));
+    let src = osc;
+    if (o.lowpass) {
+      const flt = ac.createBiquadFilter();
+      flt.type = 'lowpass';
+      flt.frequency.value = o.lowpass;
+      osc.connect(flt);
+      src = flt;
+    }
+    src.connect(envelope(t, o.dur, o.vol, o.attack));
     osc.start(t);
     osc.stop(t + o.dur + 0.02);
   }
@@ -135,6 +155,130 @@
     },
   };
 
+  // ---- Enemy voices (played positionally via GS.sfx.playAt) -----------------
+
+  // Short clicks at irregular gaps: bones knocking together
+  function rattle(count, vol) {
+    let at = 0;
+    for (let i = 0; i < count; i++) {
+      noise({ filter: 'bandpass', f0: 2500 + Math.random() * 1500, Q: 4, dur: 0.018, vol, at });
+      at += 0.025 + Math.random() * 0.03;
+    }
+  }
+
+  // Nasal "heh" chirps with a fast wobble
+  function cackle(count, vol, pitch) {
+    for (let i = 0; i < count; i++) {
+      const f = pitch * (1 + (Math.random() - 0.5) * 0.15);
+      tone({ type: 'square', f0: f, f1: f * 0.7, dur: 0.06, vol, at: i * 0.075,
+             vibrato: 25, vibratoDepth: 40, lowpass: 1800 });
+    }
+  }
+
+  const VOICES = {
+    goblinAlert:   () => cackle(4, 0.3, 700),
+    goblinIdle:    () => cackle(2, 0.2, 480),
+    skeletonAlert: () => {
+      rattle(8, 0.5);
+      tone({ type: 'sine', f0: 180, f1: 110, dur: 0.35, vol: 0.2, vibrato: 6, vibratoDepth: 8 });
+    },
+    skeletonIdle:  () => rattle(4, 0.35),
+    orcAlert:      () => {
+      tone({ type: 'sawtooth', f0: 120, f1: 70, dur: 0.3, vol: 0.45, lowpass: 600 });
+      noise({ filter: 'lowpass', f0: 500, dur: 0.25, vol: 0.3 });
+    },
+    orcIdle:       () => tone({ type: 'sawtooth', f0: 95, f1: 75, dur: 0.2, vol: 0.3, lowpass: 450 }),
+    bossAlert:     () => {
+      tone({ type: 'sawtooth', f0: 95, f1: 45, dur: 1.0, vol: 0.5, lowpass: 700, vibrato: 7, vibratoDepth: 10 });
+      tone({ type: 'square', f0: 62, f1: 50, dur: 0.9, vol: 0.25, lowpass: 400 });
+      noise({ filter: 'lowpass', f0: 900, f1: 200, dur: 0.9, vol: 0.35, attack: 0.05 });
+    },
+    bossIdle:      () => tone({ type: 'sawtooth', f0: 70, f1: 55, dur: 0.6, vol: 0.35, lowpass: 500, vibrato: 5, vibratoDepth: 6 }),
+  };
+
+  const HEAR_RANGE = 420;   // px: beyond this an enemy is silent
+
+  // ---- Music: drone + D-minor arpeggio, faster while the boss hunts you ------
+
+  const ARP = [
+    [N.D4, N.A4, N.F4, N.A4, N.D5, N.A4, N.F4, N.A4],      // Dm
+    [N.D4, N.A4, N.F4, N.A4, N.D5, N.A4, N.F4, N.A4],      // Dm
+    [N.AS3, N.F4, N.D4, N.F4, N.AS4, N.F4, N.D4, N.F4],    // Bb
+    [N.A3, N.E4, N.CS4, N.E4, N.A4, N.E4, N.CS4, N.E4],    // A
+  ];
+  const MUSIC_VOL = 0.5;
+
+  const music = { on: false, boss: false, bus: null, drone: [], droneFlt: null, timer: null, next: 0, step: 0 };
+  let ghostAt = 0;   // performance.now() time of the next distant wail
+
+  function musicStart() {
+    music.on   = true;
+    music.boss = false;
+    music.bus  = ac.createGain();
+    music.bus.gain.setValueAtTime(0.0001, ac.currentTime);
+    music.bus.gain.exponentialRampToValueAtTime(MUSIC_VOL, ac.currentTime + 1.5);
+    music.bus.connect(master);
+
+    // Drone: two detuned saws on low D through a lowpass
+    music.droneFlt = ac.createBiquadFilter();
+    music.droneFlt.type = 'lowpass';
+    music.droneFlt.frequency.value = 400;
+    const dg = ac.createGain();
+    dg.gain.value = 0.12;
+    music.droneFlt.connect(dg);
+    dg.connect(music.bus);
+    music.drone = [-6, 6].map(function (cents) {
+      const o = ac.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = N.D2;
+      o.detune.value    = cents;
+      o.connect(music.droneFlt);
+      o.start();
+      return o;
+    });
+
+    // Look-ahead scheduler: queue notes ~100 ms ahead on a 25 ms timer
+    music.next = ac.currentTime + 0.1;
+    music.step = 0;
+    music.timer = setInterval(scheduleNotes, 25);
+  }
+
+  function scheduleNotes() {
+    const stepDur = 60 / (music.boss ? 130 : 100) / 2;   // eighth notes
+    // Background tabs throttle timers; skip ahead rather than play a backlog at once
+    if (music.next < ac.currentTime) music.next = ac.currentTime + 0.05;
+    while (music.next < ac.currentTime + 0.1) {
+      const bar  = ARP[Math.floor(music.step / 8) % ARP.length];
+      route = music.bus;
+      tone({ type: 'square', f0: bar[music.step % 8], dur: stepDur * 0.9, vol: 0.06,
+             lowpass: music.boss ? 2400 : 1400, at: music.next - ac.currentTime });
+      route = null;
+      music.next += stepDur;
+      music.step++;
+    }
+  }
+
+  function musicStop() {
+    music.on = false;
+    clearInterval(music.timer);
+    const t = ac.currentTime;
+    music.bus.gain.cancelScheduledValues(t);
+    music.bus.gain.setValueAtTime(Math.max(0.0001, music.bus.gain.value), t);
+    music.bus.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    music.drone.forEach(function (o) { o.stop(t + 0.6); });
+  }
+
+  // Occasional far-off wail from somewhere in the dark: slow swell, wavering pitch
+  function ghostWail() {
+    const pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    if (pan) { pan.pan.value = Math.random() * 1.6 - 0.8; pan.connect(master); }
+    route = pan;
+    const f = 320 + Math.random() * 120;
+    tone({ type: 'sine', f0: f, f1: f * 0.75, dur: 2.4, vol: 0.12, attack: 0.9, vibrato: 4, vibratoDepth: 12 });
+    tone({ type: 'triangle', f0: f * 1.5, f1: f * 1.1, dur: 2.0, vol: 0.04, attack: 1.0, vibrato: 5, vibratoDepth: 10, at: 0.2 });
+    route = null;
+  }
+
   // ---- Public API -----------------------------------------------------------
 
   GS.sfx = {
@@ -198,9 +342,64 @@
       recipe();
     },
 
+    // Enemy voice at a world position: quieter with distance, panned left/right
+    playAt: function (name, x, y) {
+      if (GS.sfx.muted || !ac || ac.state !== 'running') return;
+      const recipe = VOICES[name];
+      if (!recipe) return;
+
+      const dx   = x - GS.player.x;
+      const dy   = y - GS.player.y;
+      const near = 1 - Math.sqrt(dx * dx + dy * dy) / HEAR_RANGE;
+      if (near <= 0.05) return;
+
+      const now = performance.now();
+      const gap = THROTTLE_MS[name];
+      if (gap && lastPlay[name] && now - lastPlay[name] < gap) return;
+      lastPlay[name] = now;
+
+      const g = ac.createGain();
+      g.gain.value = near * near;
+      if (ac.createStereoPanner) {
+        const pan = ac.createStereoPanner();
+        pan.pan.value = Math.max(-0.8, Math.min(0.8, dx / 300));
+        g.connect(pan);
+        pan.connect(master);
+      } else {
+        g.connect(master);
+      }
+      route = g;
+      recipe();
+      route = null;
+    },
+
+    // Called every frame from main.js: 'off', 'normal' or 'boss'
+    music: function (mode) {
+      if (!ac || ac.state !== 'running') return;
+      const want = mode !== 'off' && !GS.sfx.muted;
+      if (want && !music.on) musicStart();
+      if (!want && music.on) musicStop();
+      if (!music.on) return;
+
+      const boss = mode === 'boss';
+      if (boss !== music.boss) {
+        music.boss = boss;
+        music.droneFlt.frequency.setTargetAtTime(boss ? 900 : 400, ac.currentTime, 0.5);
+      }
+
+      // A distant wail every 25-45 s while exploring
+      const now = performance.now();
+      if (!ghostAt) ghostAt = now + 15000 + Math.random() * 10000;
+      if (now >= ghostAt) {
+        ghostWail();
+        ghostAt = now + 25000 + Math.random() * 20000;
+      }
+    },
+
     toggleMute: function () {
       GS.sfx.muted = !GS.sfx.muted;
       saveSettings();
+      if (GS.sfx.muted && music.on) musicStop();
     },
   };
 
