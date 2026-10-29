@@ -22,6 +22,7 @@
   let ac         = null;   // AudioContext, created on first user gesture
   let master     = null;
   let noiseBuf   = null;
+  let unlockedOnce = false;
   const lastPlay = {};
 
   function loadSettings() {
@@ -139,11 +140,16 @@
   GS.sfx = {
     muted: loadSettings().muted,
 
-    // Browsers block audio until a user gesture; called from the listeners below
+    // Browsers block audio until a user gesture; called from the listeners below.
+    // Safe to call repeatedly: every gesture retries until the context is running.
     unlock: function () {
       if (!ac) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) return;
+
+        // iOS/iPadOS 17+: play through the silent switch, like a game should
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+
         ac = new Ctx();
 
         // No compressor: Chromium's squashes short sounds badly. Per-sound
@@ -157,7 +163,26 @@
         const data = noiseBuf.getChannelData(0);
         for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       }
-      if (ac.state === 'suspended') ac.resume();
+
+      // Safari can report 'interrupted' as well as 'suspended'
+      if (ac.state !== 'running') {
+        const r = ac.resume();
+        if (r && r.catch) r.catch(function () {});
+      }
+
+      // Older Safari only unlocks after a sound is started inside the gesture
+      if (!unlockedOnce) {
+        const src = ac.createBufferSource();
+        src.buffer = ac.createBuffer(1, 1, ac.sampleRate);
+        src.connect(ac.destination);
+        src.start(0);
+        unlockedOnce = true;
+      }
+    },
+
+    // Diagnostic: run GS.sfx.state() in the browser console
+    state: function () {
+      return ac ? ac.state : 'not started';
     },
 
     play: function (name) {
@@ -179,7 +204,10 @@
     },
   };
 
-  document.addEventListener('pointerdown', GS.sfx.unlock);
+  // Several gesture types: Safari doesn't treat every one as permission to play
+  ['pointerdown', 'mousedown', 'touchend', 'click'].forEach(function (type) {
+    document.addEventListener(type, GS.sfx.unlock);
+  });
   document.addEventListener('keydown', function (e) {
     GS.sfx.unlock();
     if (e.key === 'm' || e.key === 'M') GS.sfx.toggleMute();
