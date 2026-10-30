@@ -285,6 +285,67 @@
     route = null;
   }
 
+  // ---- Keeping audio alive on iPad ---------------------------------------------
+  //
+  // iPadOS can suspend or 'interrupt' the AudioContext (notifications, app
+  // switches, Control Center), and occasionally leaves it reporting 'running'
+  // while its clock has stopped, so nothing plays. Resume whenever we can, and
+  // if the clock stays frozen, throw the context away so the next key press or
+  // tap builds a fresh one.
+
+  const stateLog = [];
+  let stalled    = false;
+  let lastClock  = 0;
+  let lastWall   = 0;
+
+  function noteState(state) {
+    stateLog.push(Math.round(performance.now() / 1000) + 's ' + state);
+    if (stateLog.length > 20) stateLog.shift();
+  }
+
+  function tryResume() {
+    if (!ac || ac.state === 'running' || ac.state === 'closed') return;
+    const r = ac.resume();
+    if (r && r.catch) r.catch(function () {});
+  }
+
+  // Called every frame (via music()): checks the audio clock is still moving
+  function watchdog() {
+    if (!ac || ac.state !== 'running' || document.hidden) {
+      lastWall = 0;
+      return;
+    }
+    const now = performance.now();
+    if (!lastWall || ac.currentTime !== lastClock) {
+      lastClock = ac.currentTime;
+      lastWall  = now;
+      if (stalled) { stalled = false; noteState('recovered'); }
+      return;
+    }
+    if (now - lastWall > 1500 && !stalled) {
+      stalled = true;
+      noteState('stalled');
+      tryResume();
+    } else if (now - lastWall > 3000) {
+      rebuildContext();
+    }
+  }
+
+  function rebuildContext() {
+    noteState('rebuilding');
+    if (music.on) { clearInterval(music.timer); music.on = false; }
+    const old = ac;
+    ac = null;
+    stalled = false;
+    lastWall = 0;
+    unlockedOnce = false;
+    try { old.close(); } catch (e) {}
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) tryResume();
+  });
+
   // ---- Public API -----------------------------------------------------------
 
   GS.sfx = {
@@ -300,7 +361,13 @@
         // iOS/iPadOS 17+: play through the silent switch, like a game should
         try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
 
-        ac = new Ctx();
+        const ctx = new Ctx();
+        ac = ctx;
+        ctx.onstatechange = function () {
+          noteState(ctx.state);
+          if (ctx === ac) tryResume();   // iPadOS can suspend or interrupt audio mid-game
+        };
+        noteState(ctx.state);
 
         // No compressor: Chromium's squashes short sounds badly. Per-sound
         // volumes plus throttling keep overlapping sounds below clipping.
@@ -314,11 +381,7 @@
         for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       }
 
-      // Safari can report 'interrupted' as well as 'suspended'
-      if (ac.state !== 'running') {
-        const r = ac.resume();
-        if (r && r.catch) r.catch(function () {});
-      }
+      tryResume();
 
       // Older Safari only unlocks after a sound is started inside the gesture
       if (!unlockedOnce) {
@@ -330,12 +393,17 @@
       }
     },
 
-    // Diagnostic: run GS.sfx.state() in the browser console
+    // 'running' when all is well; otherwise shown next to the HUD speaker icon
     state: function () {
-      return ac ? ac.state : 'not started';
+      if (!ac) return 'not started';
+      return stalled ? 'stalled' : ac.state;
     },
 
+    // Recent state changes, newest last, for diagnosing audio dropouts
+    log: stateLog,
+
     play: function (name) {
+      if (ac && ac.state !== 'running') tryResume();
       if (GS.sfx.muted || !ac || ac.state !== 'running') return;
       const recipe = SOUNDS[name];
       if (!recipe) return;
@@ -381,6 +449,7 @@
 
     // Called every frame from main.js: 'off', 'normal' or 'boss'
     music: function (mode) {
+      watchdog();
       if (!ac || ac.state !== 'running') return;
       const want = mode !== 'off' && !GS.sfx.muted;
       if (want && !music.on) musicStart();

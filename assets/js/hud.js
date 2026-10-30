@@ -78,7 +78,17 @@
     ctx.fillText(goldStr, w - 8, h / 2);
 
     // Sound on/off indicator (M toggles), left of the gold counter
-    drawSpeaker(ctx, w - 8 - Math.ceil(ctx.measureText(goldStr).width) - 26, h / 2, GS.sfx.muted);
+    const spkX = w - 8 - Math.ceil(ctx.measureText(goldStr).width) - 26;
+    drawSpeaker(ctx, spkX, h / 2, GS.sfx.muted);
+
+    // If audio isn't running (and isn't muted), say why, so dropouts can be reported
+    const audio = GS.sfx.state();
+    if (!GS.sfx.muted && audio !== 'running') {
+      ctx.textAlign = 'right';
+      ctx.font      = '10px monospace';
+      ctx.fillStyle = '#e0a020';
+      ctx.fillText('audio: ' + audio, spkX - 6, h / 2);
+    }
   }
 
   function drawSpeaker(ctx, x, cy, muted) {
