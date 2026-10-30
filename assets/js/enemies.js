@@ -123,6 +123,7 @@
     if (e.boss && GS.meta) GS.meta.bossKills++;
     GS.enemies.splice(idx, 1);
     GS.fx.enemyKilled(e, gold);
+    GS.pickups.drop(e);
     GS.sfx.play(e.boss ? 'bossDie' : 'enemyDie');
     GS.sfx.play('coin');
   };

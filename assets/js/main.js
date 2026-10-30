@@ -46,6 +46,7 @@
     GS.combat.update();
     GS.arrows.update();
     GS.enemies.update();
+    GS.pickups.update();
     GS.camera.update();
 
     // Win when the boss is dead

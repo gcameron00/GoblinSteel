@@ -149,6 +149,12 @@
       [N.C5, N.E5, N.G5, N.C6].forEach(f => tone({ type: 'triangle', f0: f, dur: 0.9, vol: 0.15, at: 1.0 }));
     },
     death: () => notes([N.A4, N.F4, N.D4, N.A3], 0.22, 0.26, 'triangle', 0.3, 0.15),
+    // Bubbly upward glug
+    potion: () => {
+      [0, 0.07, 0.14].forEach((at, i) =>
+        tone({ type: 'sine', f0: 300 + i * 120, f1: 520 + i * 160, dur: 0.08, vol: 0.3, at }));
+      tone({ type: 'triangle', f0: N.A4 * 2, dur: 0.18, vol: 0.12, at: 0.22, vibrato: 8, vibratoDepth: 15 });
+    },
     revive: () => {
       tone({ type: 'sawtooth', f0: 90, f1: 220, dur: 0.14, vol: 0.25 });
       notes([N.C5, N.E5, N.G5, N.C6], 0.06, 0.08, 'square', 0.25, 0.1);
