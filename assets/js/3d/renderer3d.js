@@ -1,9 +1,10 @@
-// Experimental three.js renderer (step 0: scaffolding).
+// Experimental three.js renderer (step 1: textured dungeon and torchlight).
 // Draws the dungeon in 3D on #worldCanvas, then the shared HUD and overlays on
 // the 2D #gameCanvas above it. Game state is read from GS; nothing here changes it.
 // World mapping: 1 unit = 1 tile; game x -> X, game y -> Z, Y is up.
 
 import * as THREE from 'three';
+import { wallTopTexture, wallSideTexture, floorTexture } from './textures.js';
 
 const T      = GS.TILE_SIZE;
 const WALL_H = 1.2;
@@ -21,15 +22,23 @@ const canvas   = document.getElementById('worldCanvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.setSize(GS.VIEW_W, GS.VIEW_H, false);   // CSS size comes from the page stylesheet
+renderer.toneMapping         = THREE.ACESFilmicToneMapping;   // soft roll-off near the torch
+renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(FOV, GS.VIEW_W / GS.VIEW_H, 0.1, 200);
 
-scene.add(new THREE.AmbientLight(0x6070a0, 0.25));
-const TORCH_I = 60;
-const torch = new THREE.PointLight(0xffb060, TORCH_I, 18, 1.6);
+// Near-black ambient: beyond the torch's reach the dungeon falls into darkness
+scene.add(new THREE.AmbientLight(0x404a80, 0.15));
+
+// The player's torch, carried high and a little toward the camera, so it lights
+// the floor and wall faces around the player without blowing out their head
+const TORCH_I      = 190;
+const TORCH_HEIGHT = 4.5;
+const TORCH_RANGE  = 12;   // tiles (3D distance): roughly where the 2D vignette went dark
+const torch = new THREE.PointLight(0xffd8a0, TORCH_I, TORCH_RANGE, 2);
 scene.add(torch);
 
 // Browsers can drop the WebGL context (e.g. after backgrounding on iPad); let it restore
@@ -37,8 +46,18 @@ canvas.addEventListener('webglcontextlost', e => e.preventDefault());
 
 // ---- Dungeon geometry ------------------------------------------------------
 
-const wallMat  = new THREE.MeshStandardMaterial({ color: 0x2a2478, roughness: 0.9 });
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 1.0 });
+const topTex   = wallTopTexture();
+const sideTex  = wallSideTexture();
+const floorTex = floorTexture();
+
+function stoneMat(tex, bumpScale) {
+  return new THREE.MeshStandardMaterial({ map: tex.map, bumpMap: tex.bump, bumpScale, roughness: 0.92 });
+}
+const wallSideMat = stoneMat(sideTex, 2.5);
+const wallTopMat  = stoneMat(topTex, 2.5);
+// BoxGeometry face order: +x, -x, +y (top), -y, +z, -z
+const wallMat  = [wallSideMat, wallSideMat, wallTopMat, wallSideMat, wallSideMat, wallSideMat];
+const floorMat = stoneMat(floorTex, 3);
 const wallGeo  = new THREE.BoxGeometry(1, WALL_H, 1);
 const floorGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
@@ -67,8 +86,9 @@ function buildDungeon() {
       else if (isVisibleWall(c, r)) walls.push([c, r]);
     }
 
-  const m = new THREE.Matrix4();
-  const col = new THREE.Color();
+  const m    = new THREE.Matrix4();
+  const spin = new THREE.Matrix4();
+  const col  = new THREE.Color();
 
   const wallMesh = new THREE.InstancedMesh(wallGeo, wallMat, walls.length);
   walls.forEach(([c, r], i) => {
@@ -78,7 +98,9 @@ function buildDungeon() {
 
   const floorMesh = new THREE.InstancedMesh(floorGeo, floorMat, floors.length);
   floors.forEach(([c, r], i) => {
-    floorMesh.setMatrixAt(i, m.makeTranslation(c + 0.5, 0, r + 0.5));
+    // A random quarter-turn per tile hides the repeat of the single floor texture
+    spin.makeRotationY(Math.floor(Math.random() * 4) * Math.PI / 2);
+    floorMesh.setMatrixAt(i, m.makeTranslation(c + 0.5, 0, r + 0.5).multiply(spin));
     floorMesh.setColorAt(i, col.setScalar(0.8 + Math.random() * 0.35));
   });
 
@@ -92,7 +114,7 @@ function buildDungeon() {
 // Simple body + nose cone so facing is readable
 function makeActor(colour, radius, height) {
   const g    = new THREE.Group();
-  const mat  = new THREE.MeshStandardMaterial({ color: colour, roughness: 0.7 });
+  const mat  = new THREE.MeshStandardMaterial({ color: colour, roughness: 1 });   // matte: overhead torch + overhead camera = glare otherwise
   const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.1, height, 12), mat);
   body.position.y = height / 2;
   const nose = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.4, radius * 0.9, 8), mat);
@@ -186,8 +208,38 @@ function syncCamera() {
   flickerT++;
   flickerN = flickerN * 0.9 + (Math.random() - 0.5) * 0.4;
   const f = 1 + 0.06 * (0.5 * Math.sin(flickerT * 0.13) + 0.3 * Math.sin(flickerT * 0.31 + 1) + flickerN);
-  torch.position.set(p.x / T, 2.6, p.y / T);   // held well above head height so the player isn't washed out
+  torch.position.set(p.x / T, TORCH_HEIGHT, p.y / T + 0.6);
   torch.intensity = TORCH_I * f;
+}
+
+// ---- Debug readout (/3d/?debug) ---------------------------------------------
+
+const DEBUG   = /[?&]debug\b/.test(location.search);
+let fpsFrames = 0;
+let fpsSince  = performance.now();
+let fpsText   = '';
+
+function drawDebug(ctx) {
+  fpsFrames++;
+  const now = performance.now();
+  if (now - fpsSince > 2000) {        // 3D drawing just resumed (menus don't call this): start afresh
+    fpsFrames = 0;
+    fpsSince  = now;
+  } else if (now - fpsSince >= 1000) {
+    const info = renderer.info.render;
+    fpsText   = Math.round(fpsFrames * 1000 / (now - fpsSince)) + ' fps  ' +
+                info.calls + ' draws  ' + Math.round(info.triangles / 1000) + 'k tris  ' +
+                'dpr ' + renderer.getPixelRatio();
+    fpsFrames = 0;
+    fpsSince  = now;
+  }
+  ctx.font         = '11px monospace';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle    = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(4, GS.HUD_H + 4, ctx.measureText(fpsText).width + 8, 15);
+  ctx.fillStyle    = '#60e060';
+  ctx.fillText(fpsText, 8, GS.HUD_H + 6);
 }
 
 // ---- Shared hooks -----------------------------------------------------------
@@ -216,4 +268,5 @@ GS.render = function (ctx) {
   ctx.clearRect(0, 0, GS.VIEW_W, GS.VIEW_H + GS.HUD_H);
   GS.fx.drawOverlay(ctx);
   GS.hud.draw(ctx);
+  if (DEBUG) drawDebug(ctx);
 };

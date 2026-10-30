@@ -87,6 +87,8 @@ A perspective camera high above the player, looking down with a small tilt (abou
 - **Lighting:** the player carries the torch, as a warm `PointLight` with the same irregular flicker as today. A very dim cool ambient light means unlit areas fall to near-black. Darkness now comes from real light falloff instead of a painted vignette.
 - **Shadows:** off at first. Shadows from a point light are the single most expensive feature on a tablet, so they're tried as a toggle in Step 5.
 
+> *As built:* textures live in `assets/js/3d/textures.js`. Each texture has a matching bump map so the mortar joints catch the light, and floor tiles are given a random quarter-turn to hide the repeat. The torch is a pale warm light (`0xffd8a0`) held 4.5 tiles up, which avoids turning the floor red and glaring off the figures. Ambient light is near-black and ACES tone mapping is on. The `/3d/?debug` readout (fps, draw calls, triangles, pixel ratio) was brought forward from Step 5 so the frame rate can be checked on the iPad from now on.
+
 ---
 
 ## Step 2 — Characters and enemies
