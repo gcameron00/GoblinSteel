@@ -94,6 +94,7 @@
   GS.map = {
     data:       tiles,
     spawnTile:  result.spawnTile,
+    version:    1,
     enemyRooms: result.enemyRooms,
 
     getTile: function (col, row) {
@@ -112,6 +113,7 @@
           tiles[r][c] = result.tiles[r][c];
       GS.map.spawnTile  = result.spawnTile;
       GS.map.enemyRooms = result.enemyRooms;
+      GS.map.version++;   // lets the 3D renderer know to rebuild its geometry
     },
   };
 }());

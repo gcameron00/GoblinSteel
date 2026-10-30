@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Goblin Steel 3D</title>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <style>
+      /* WebGL world sits under the 2D canvas, below the 24px HUD bar */
+      #stage       { position: relative; width: 800px; height: 600px; }
+      #worldCanvas { position: absolute; left: 0; top: 24px; width: 800px; height: 576px; display: block; }
+      #gameCanvas  { position: absolute; left: 0; top: 0; }
+    </style>
+    <script type="importmap">
+      { "imports": { "three": "/assets/vendor/three/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="worldCanvas"></canvas>
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Experimental 3D renderer. Shares all game code with the main page;
+         only renderer.js is swapped for 3d/renderer3d.js.
+         Every script is deferred so the module renderer runs in document order. -->
+    <script defer src="/assets/js/constants.js"></script>
+    <script defer src="/assets/js/input.js"></script>
+    <script defer src="/assets/js/audio.js"></script>
+    <script defer src="/assets/js/map.js"></script>
+    <script defer src="/assets/js/meta.js"></script>
+    <script defer src="/assets/js/fx.js"></script>
+    <script defer src="/assets/js/pickups.js"></script>
+    <script defer src="/assets/js/player.js"></script>
+    <script defer src="/assets/js/camera.js"></script>
+    <script defer src="/assets/js/arrows.js"></script>
+    <script defer src="/assets/js/enemies.js"></script>
+    <script defer src="/assets/js/combat.js"></script>
+    <script defer src="/assets/js/screens.js"></script>
+    <script defer src="/assets/js/hud.js"></script>
+    <script type="module" src="/assets/js/3d/renderer3d.js"></script>
+    <script defer src="/assets/js/main.js"></script>
+  </body>
+</html>

@@ -166,15 +166,12 @@
 
   // Floating text + hurt flash: drawn after lighting so they stay readable
   GS.fx.drawOverlay = function (ctx) {
-    const cam = GS.camera;
-
     if (GS.fx.texts.length) {
       ctx.font         = 'bold 11px monospace';
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       for (const t of GS.fx.texts) {
-        const sx = Math.round(t.x - cam.x);
-        const sy = Math.round(t.y - cam.y) + GS.HUD_H;
+        const { x: sx, y: sy } = GS.toScreen(t.x, t.y);
         ctx.globalAlpha = Math.min(1, (t.life / t.maxLife) * 2);
         ctx.fillStyle   = '#000';
         ctx.fillText(t.str, sx + 1, sy + 1);
