@@ -96,6 +96,7 @@ A perspective camera high above the player, looking down with a small tilt (abou
 - **Low-poly models built in code** from primitives (boxes, capsules, cones, spheres), one builder per class and enemy type, keeping each one's colours and silhouette: the Warrior's shield, the Elf's bow, the Wizard's hat and staff, goblin ears, the skeleton's ribcage, orc tusks, the boss's crown and mace. Like the rest of the project, no model files.
 - **Facing** rotates the model, and **walking** (the existing `frame` / `moving` state) swings the legs and adds a bob.
 - **Hit flash** as a brief white emissive glow, driven by the existing `hitFlash` / `hurtFlash` counters.
+- *As built:* models are in `assets/js/3d/models.js` (`buildActor(kind)`), with a soft shadow disc under each. They're built about a tile tall, then scaled ×1.7 in the renderer so heads and shoulders read at the 2D sprites' size from above, and walls were raised to 1.6. The walk cycle is driven by actual movement, and figures turn smoothly toward their facing. Attacks are a sideways slash (forward-and-down didn't show from above); enemy attacks are detected when their cooldown resets. Eyes glow brighter once an enemy is aggressive, and a charging orc flushes green.
 - *Later option, not in this plan:* swap in free CC0 glTF models (for example from Kenney or Quaternius) via `GLTFLoader`. That would mean adding model files to the repo, so it's a separate decision.
 
 ---

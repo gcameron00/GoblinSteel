@@ -1,20 +1,24 @@
-// Experimental three.js renderer (step 1: textured dungeon and torchlight).
+// Experimental three.js renderer (step 2: character and enemy models).
 // Draws the dungeon in 3D on #worldCanvas, then the shared HUD and overlays on
 // the 2D #gameCanvas above it. Game state is read from GS; nothing here changes it.
 // World mapping: 1 unit = 1 tile; game x -> X, game y -> Z, Y is up.
 
 import * as THREE from 'three';
 import { wallTopTexture, wallSideTexture, floorTexture } from './textures.js';
+import { buildActor } from './models.js';
 
 const T      = GS.TILE_SIZE;
-const WALL_H = 1.2;
+const WALL_H = 1.6;
+
+// Models are built about a tile tall; from above you mostly see heads and
+// shoulders, so they're scaled up to read at the same size as the 2D sprites
+const ACTOR_SCALE = 1.7;
 
 // Camera: high above the player, tilted slightly so wall faces and height show
 const FOV       = 35;                       // vertical, degrees
 const TILT      = 12 * Math.PI / 180;       // from straight down
 const CAM_DIST  = (GS.VIEW_H / T / 2) / Math.tan(FOV / 2 * Math.PI / 180);   // ~18 tiles tall in view
 
-const ENEMY_COL = { goblin: 0x4a7a1e, skeleton: 0xc8c8b8, orc: 0x2a4a10, boss: 0x306020 };
 
 // ---- Renderer, scene, camera -------------------------------------------------
 
@@ -109,46 +113,92 @@ function buildDungeon() {
   builtVersion = GS.map.version;
 }
 
-// ---- Actors (placeholders until step 2) --------------------------------------
-
-// Simple body + nose cone so facing is readable
-function makeActor(colour, radius, height) {
-  const g    = new THREE.Group();
-  const mat  = new THREE.MeshStandardMaterial({ color: colour, roughness: 1 });   // matte: overhead torch + overhead camera = glare otherwise
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.1, height, 12), mat);
-  body.position.y = height / 2;
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.4, radius * 0.9, 8), mat);
-  nose.rotation.x = Math.PI / 2;
-  nose.position.set(0, height * 0.7, radius * 1.1);
-  g.add(body, nose);
-  g.userData.mat = mat;
-  return g;
-}
+// ---- Actors -----------------------------------------------------------------
 
 const FACING_ANGLE = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 };
+const ATTACK_FRAMES = 12;
+
+// Per-model animation state, kept beside the three.js object
+function animState() {
+  return { phase: 0, lastX: null, lastY: null, attack: 0, lastAtkTimer: 0, angle: null };
+}
 
 function place(obj, x, y, facing) {
   obj.position.set(x / T, 0, y / T);
-  if (facing) obj.rotation.y = FACING_ANGLE[facing] || 0;
+
+  // Turn smoothly toward the facing direction (shortest way round)
+  const st     = obj.userData.anim;
+  const target = FACING_ANGLE[facing] || 0;
+  if (st.angle === null) st.angle = target;
+  let d = target - st.angle;
+  d = Math.atan2(Math.sin(d), Math.cos(d));
+  st.angle += d * 0.35;
+  obj.rotation.y = st.angle;
 }
 
+// Walk cycle from actual movement, plus a downward arm swing when attacking
+function animate(obj, x, y, speedMul, attacking) {
+  const u  = obj.userData;
+  const st = u.anim;
+  const moved = st.lastX !== null && (Math.abs(x - st.lastX) + Math.abs(y - st.lastY)) > 0.05;
+  st.lastX = x;
+  st.lastY = y;
+
+  if (moved) st.phase += 0.28 * speedMul;
+  const stride = moved ? Math.sin(st.phase) : 0;
+  const ease   = (part, target) => { part.rotation.x += (target - part.rotation.x) * 0.3; };
+
+  ease(u.legL,  stride * 0.7);
+  ease(u.legR, -stride * 0.7);
+  ease(u.armL, -stride * 0.45);
+  u.rig.position.y = moved ? Math.abs(Math.sin(st.phase)) * 0.03 : u.rig.position.y * 0.7;
+
+  if (attacking) st.attack = ATTACK_FRAMES;
+  if (st.attack > 0) {
+    // Sideways slash across the body: arm raised forward, weapon sweeping from
+    // the right side to the left, which reads clearly from above
+    const k = 1 - st.attack / ATTACK_FRAMES;
+    u.armR.rotation.x = -1.2;
+    u.armR.rotation.y = 1.4 - 2.8 * Math.min(1, k * 1.4);
+    st.attack--;
+  } else {
+    ease(u.armR, stride * 0.45);
+    u.armR.rotation.y *= 0.7;
+  }
+}
+
+const white = new THREE.Color(0xffffff);
+const black = new THREE.Color(0x000000);
+
 function flash(obj, on) {
-  obj.userData.mat.emissive.setHex(on ? 0xffffff : 0x000000);
+  for (const m of obj.userData.mats) m.emissive.copy(on ? white : black);
+}
+
+function spawnActor(kind) {
+  const obj = buildActor(kind);
+  obj.scale.multiplyScalar(ACTOR_SCALE);
+  obj.userData.anim = animState();
+  scene.add(obj);
+  return obj;
 }
 
 let playerObj   = null;
 let playerClass = null;
+let wasSwinging = false;
 
 function syncPlayer() {
   const p   = GS.player;
   const cls = GS.selectedClass ? GS.selectedClass.name : 'ELF';
   if (cls !== playerClass) {
     if (playerObj) scene.remove(playerObj);
-    playerObj   = makeActor(new THREE.Color(GS.selectedClass ? GS.selectedClass.col : '#40a040'), 0.28, 0.8);
+    playerObj   = spawnActor(cls);
     playerClass = cls;
-    scene.add(playerObj);
   }
+  // Melee swing starts when the shared combat state flips on
+  const swinging = !!(GS.combat && GS.combat.swingActive);
   place(playerObj, p.x, p.y, p.facing);
+  animate(playerObj, p.x, p.y, 1, swinging && !wasSwinging);
+  wasSwinging = swinging;
   flash(playerObj, p.hurtFlash > 0);
 }
 
@@ -162,12 +212,23 @@ function syncEnemies() {
   for (const e of GS.enemies) {
     let obj = enemyObjs.get(e);
     if (!obj) {
-      obj = makeActor(ENEMY_COL[e.type] || 0x4a7a1e, e.boss ? 0.4 : 0.26, e.boss ? 1.1 : 0.7);
+      obj = spawnActor(e.type);
       enemyObjs.set(e, obj);
-      scene.add(obj);
     }
+    const st = obj.userData.anim;
+    // The enemy just attacked if its cooldown jumped back up
+    const attacked = e.attackTimer > st.lastAtkTimer;
+    st.lastAtkTimer = e.attackTimer;
+
     place(obj, e.x, e.y, e.facing);
+    animate(obj, e.x, e.y, e.chargeTimer > 0 ? 2 : 1, attacked);
     flash(obj, e.hitFlash > 0);
+
+    // Eyes burn brighter once it has spotted you; a charging orc flushes green
+    for (const m of obj.userData.eyes) m.emissiveIntensity = e.state === 'aggro' ? 2.5 : 1.0;
+    if (e.type === 'orc' && e.hitFlash <= 0) {
+      obj.userData.torso.emissive.setHex(e.chargeTimer > 0 ? 0x1a4000 : 0x000000);
+    }
   }
 }
 
