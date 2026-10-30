@@ -23,7 +23,7 @@
   // -------------------------------------------------------------------------
   const CLASSES = [
     { name: 'WARRIOR', active: true, col: '#c84020', desc: 'Sword & Shield',
-      stats: { STR: 5, DEX: 2, INT: 1, HP: 5 }, maxHp: 100 },
+      stats: { STR: 5, DEX: 2, INT: 1, HP: 5 }, maxHp: 120 },
     { name: 'ELF',     active: true, col: '#38c028', desc: 'Longbow',
       stats: { STR: 2, DEX: 5, INT: 3, HP: 3 }, maxHp: 80  },
     { name: 'CLERIC',  active: true, col: '#c8a020', desc: 'Mace & Holy',
