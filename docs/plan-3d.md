@@ -73,7 +73,7 @@ A perspective camera high above the player, looking down with a small tilt (abou
 **New files:**
 
 - `3d/index.html`: the page, with both canvases and deferred scripts. It isn't linked from the main game; you reach it by URL.
-- `assets/vendor/three/three.module.min.js`: a pinned release (the latest one at least two weeks old when this step is done), with its MIT licence file.
+- `assets/vendor/three/three.module.js`: three.js **r170**, copied unchanged from the `pac-man` repo (already proven on iPhone), with its MIT licence file. It's loaded through an import map, as pac-man does.
 - `assets/js/3d/renderer3d.js`: creates the WebGL renderer, scene and camera, follows the player, and draws floor and walls as flat-coloured boxes. Just enough to walk around the dungeon in 3D with the existing HUD and menus on top.
 
 **Done when:** you can pick a class, walk the dungeon at `/3d/` on the iPad, and the main game at `/` is unchanged.
@@ -147,7 +147,7 @@ A perspective camera high above the player, looking down with a small tilt (abou
 | `3d/index.html` | **New:** 3D page with stacked canvases and deferred scripts |
 | `assets/js/3d/renderer3d.js` | **New:** three.js renderer (dungeon, models, lights, effects) |
 | `assets/js/3d/models.js` | **New (Step 2):** procedural character and enemy builders |
-| `assets/vendor/three/` | **New:** pinned `three.module.min.js` and its `LICENSE` |
+| `assets/vendor/three/` | **New:** three.js r170 `three.module.js` and its `LICENSE` |
 
 ---
 
