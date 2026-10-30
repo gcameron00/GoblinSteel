@@ -18,7 +18,7 @@ Players explore procedurally generated dungeons viewed from above, with the view
 
 - **Explore** — Navigate dungeon rooms and corridors, revealing the map as you go
 - **Fight** — Engage goblin hordes that patrol and swarm in unpredictable waves
-- **Loot** — Discover treasure scattered throughout the dungeon depths
+- **Loot** — Collect gold from fallen enemies, and the health potions they sometimes drop (walk over one to heal 20% of your max HP; at full health it waits for you)
 - **Survive** — Manage health and abilities to push as deep as possible
 
 ---

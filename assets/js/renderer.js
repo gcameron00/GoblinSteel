@@ -390,6 +390,7 @@
     const cam = GS.camera;
     const es  = GS.enemies;
 
+    GS.pickups.draw(ctx);
     drawCorpses(ctx);
 
     for (let i = 0; i < es.length; i++) {
@@ -1085,6 +1086,7 @@
     drawArrows(ctx);
     GS.fx.drawParticles(ctx);
     drawLighting(ctx);
+    GS.pickups.drawGlow(ctx);
     GS.fx.drawOverlay(ctx);
     drawHUD(ctx);
   };
