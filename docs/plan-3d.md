@@ -110,6 +110,8 @@ A perspective camera high above the player, looking down with a small tilt (abou
 - **Potions:** a small flask model with an emissive glow plus a faint point light, so they're visible in the dark without the 2D glint.
 - **Overlays stay 2D:** floating text (via `GS.toScreen`) and the red hurt flash are drawn on the 2D canvas.
 
+> *As built:* combat visuals live in `assets/js/3d/effects3d.js`. Lights are a fixed pool (three for bolts, two for the nearest potions), switched off when unused, because changing the number of lights makes three.js recompile shaders mid-fight. Sparks are drawn about 2.5× the 2D size so they read in 3D. A killed enemy's own model is kept and faded, matched to its `GS.fx.corpses` record. The Elf and Wizard get a two-armed firing pose when a new projectile appears.
+
 ---
 
 ## Step 4 — Feel
