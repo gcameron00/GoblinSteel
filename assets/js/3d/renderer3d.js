@@ -1,4 +1,4 @@
-// Experimental three.js renderer (step 2: character and enemy models).
+// Experimental three.js renderer (step 3: combat visuals).
 // Draws the dungeon in 3D on #worldCanvas, then the shared HUD and overlays on
 // the 2D #gameCanvas above it. Game state is read from GS; nothing here changes it.
 // World mapping: 1 unit = 1 tile; game x -> X, game y -> Z, Y is up.
@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { wallTopTexture, wallSideTexture, floorTexture } from './textures.js';
 import { buildActor } from './models.js';
+import { createEffects } from './effects3d.js';
 
 const T      = GS.TILE_SIZE;
 const WALL_H = 1.6;
@@ -47,6 +48,8 @@ scene.add(torch);
 
 // Browsers can drop the WebGL context (e.g. after backgrounding on iPad); let it restore
 canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+
+const effects = createEffects(scene);
 
 // ---- Dungeon geometry ------------------------------------------------------
 
@@ -117,10 +120,11 @@ function buildDungeon() {
 
 const FACING_ANGLE = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 };
 const ATTACK_FRAMES = 12;
+const CAST_FRAMES   = 10;
 
 // Per-model animation state, kept beside the three.js object
 function animState() {
-  return { phase: 0, lastX: null, lastY: null, attack: 0, lastAtkTimer: 0, angle: null };
+  return { phase: 0, lastX: null, lastY: null, attack: 0, cast: 0, lastAtkTimer: 0, angle: null };
 }
 
 function place(obj, x, y, facing) {
@@ -137,7 +141,7 @@ function place(obj, x, y, facing) {
 }
 
 // Walk cycle from actual movement, plus a downward arm swing when attacking
-function animate(obj, x, y, speedMul, attacking) {
+function animate(obj, x, y, speedMul, attacking, firing) {
   const u  = obj.userData;
   const st = u.anim;
   const moved = st.lastX !== null && (Math.abs(x - st.lastX) + Math.abs(y - st.lastY)) > 0.05;
@@ -150,11 +154,22 @@ function animate(obj, x, y, speedMul, attacking) {
 
   ease(u.legL,  stride * 0.7);
   ease(u.legR, -stride * 0.7);
-  ease(u.armL, -stride * 0.45);
+  if (firing) st.cast = CAST_FRAMES;
+  if (st.cast > 0) {
+    // Ranged shot: both arms thrust forward (bow drawn, or staff pointed), then relax
+    const k = st.cast / CAST_FRAMES;
+    u.armL.rotation.x = -1.5 * k;
+    u.armR.rotation.x = -1.5 * k;
+    st.cast--;
+  } else {
+    ease(u.armL, -stride * 0.45);
+  }
   u.rig.position.y = moved ? Math.abs(Math.sin(st.phase)) * 0.03 : u.rig.position.y * 0.7;
 
   if (attacking) st.attack = ATTACK_FRAMES;
-  if (st.attack > 0) {
+  if (st.cast > 0) {
+    // arms already posed for the shot above
+  } else if (st.attack > 0) {
     // Sideways slash across the body: arm raised forward, weapon sweeping from
     // the right side to the left, which reads clearly from above
     const k = 1 - st.attack / ATTACK_FRAMES;
@@ -177,6 +192,7 @@ function flash(obj, on) {
 function spawnActor(kind) {
   const obj = buildActor(kind);
   obj.scale.multiplyScalar(ACTOR_SCALE);
+  obj.userData.baseScale = obj.scale.x;
   obj.userData.anim = animState();
   scene.add(obj);
   return obj;
@@ -185,6 +201,7 @@ function spawnActor(kind) {
 let playerObj   = null;
 let playerClass = null;
 let wasSwinging = false;
+const seenShots = new WeakSet();
 
 function syncPlayer() {
   const p   = GS.player;
@@ -196,19 +213,32 @@ function syncPlayer() {
   }
   // Melee swing starts when the shared combat state flips on
   const swinging = !!(GS.combat && GS.combat.swingActive);
+  // A ranged shot is a projectile we haven't seen before (new ones are pushed to the end)
+  const newest = GS.arrows[GS.arrows.length - 1];
+  const fired  = !!newest && !seenShots.has(newest);
+  if (newest) seenShots.add(newest);
+
   place(playerObj, p.x, p.y, p.facing);
-  animate(playerObj, p.x, p.y, 1, swinging && !wasSwinging);
+  animate(playerObj, p.x, p.y, 1, swinging && !wasSwinging, fired);
   wasSwinging = swinging;
   flash(playerObj, p.hurtFlash > 0);
 }
 
 const enemyObjs = new Map();   // enemy object -> three.js group
 
+const dying = [];   // { obj, record } for enemies fading out
+
 function syncEnemies() {
   const alive = new Set(GS.enemies);
   for (const [e, obj] of enemyObjs) {
-    if (!alive.has(e)) { scene.remove(obj); enemyObjs.delete(e); }
+    if (alive.has(e)) continue;
+    enemyObjs.delete(e);
+    // A kill leaves a matching record in GS.fx.corpses; anything else (a new run) just goes
+    const record = GS.fx.corpses.find(c => c.type === e.type && c.x === e.x && c.y === e.y);
+    if (record) dying.push({ obj, record });
+    else scene.remove(obj);
   }
+  syncDying();
   for (const e of GS.enemies) {
     let obj = enemyObjs.get(e);
     if (!obj) {
@@ -232,26 +262,23 @@ function syncEnemies() {
   }
 }
 
-// Small pooled meshes for projectiles and potions
-function pool(geo, mat) {
-  const items = [];
-  return function sync(list, y) {
-    while (items.length < list.length) {
-      const m = new THREE.Mesh(geo, mat);
-      items.push(m);
-      scene.add(m);
+// Flash white, then squash toward the floor and fade, following the shared corpse timer
+function syncDying() {
+  const max = GS.fx.CORPSE_FRAMES;
+  for (let i = dying.length - 1; i >= 0; i--) {
+    const { obj, record } = dying[i];
+    if (record.life <= 0 || !GS.fx.corpses.includes(record)) {
+      scene.remove(obj);
+      dying.splice(i, 1);
+      continue;
     }
-    items.forEach((m, i) => {
-      m.visible = i < list.length;
-      if (m.visible) m.position.set(list[i].x / T, y, list[i].y / T);
-    });
-  };
+    const k = record.life / max;
+    const base = obj.userData.baseScale;
+    obj.scale.set(base * (1 + (1 - k) * 0.4), base * Math.max(0.05, k), base * (1 + (1 - k) * 0.4));
+    flash(obj, record.life > max - 4);
+    for (const m of obj.userData.mats) { m.transparent = true; m.opacity = k; }
+  }
 }
-
-const syncArrows  = pool(new THREE.SphereGeometry(0.08, 8, 6),
-                         new THREE.MeshBasicMaterial({ color: 0xf0e0a0 }));
-const syncPickups = pool(new THREE.SphereGeometry(0.14, 12, 8),
-                         new THREE.MeshStandardMaterial({ color: 0xc01828, emissive: 0x801018 }));
 
 // ---- Camera and torch ------------------------------------------------------
 
@@ -321,8 +348,7 @@ GS.render = function (ctx) {
   syncCamera();
   syncPlayer();
   syncEnemies();
-  syncArrows(GS.arrows, 0.5);
-  syncPickups(GS.pickups, 0.2);
+  effects.update();
   renderer.render(scene, camera);
 
   // 2D layer: clear so the world shows through, then overlays and HUD
