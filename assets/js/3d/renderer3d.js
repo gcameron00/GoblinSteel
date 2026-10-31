@@ -1,4 +1,4 @@
-// Experimental three.js renderer (step 3: combat visuals).
+// Experimental three.js renderer (step 4: boss lighting and camera feel).
 // Draws the dungeon in 3D on #worldCanvas, then the shared HUD and overlays on
 // the 2D #gameCanvas above it. Game state is read from GS; nothing here changes it.
 // World mapping: 1 unit = 1 tile; game x -> X, game y -> Z, Y is up.
@@ -15,10 +15,19 @@ const WALL_H = 1.6;
 // shoulders, so they're scaled up to read at the same size as the 2D sprites
 const ACTOR_SCALE = 1.7;
 
-// Camera: high above the player, tilted slightly so wall faces and height show
-const FOV       = 35;                       // vertical, degrees
-const TILT      = 12 * Math.PI / 180;       // from straight down
-const CAM_DIST  = (GS.VIEW_H / T / 2) / Math.tan(FOV / 2 * Math.PI / 180);   // ~18 tiles tall in view
+// Camera: high above the player, tilted slightly so wall faces and height show.
+// Tunable from the address bar for trying values on the iPad, e.g.
+// /3d/?debug&tilt=20&fov=40&zoom=1.2 (zoom > 1 = closer, showing less of the map)
+const params    = new URLSearchParams(location.search);
+const param     = (name, def, lo, hi) => {
+  const v = parseFloat(params.get(name));
+  return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def;
+};
+const TILT_DEG  = param('tilt', 12, 0, 45);
+const FOV       = param('fov', 35, 20, 70);                // vertical, degrees
+const ZOOM      = param('zoom', 1, 0.6, 2);
+const TILT      = TILT_DEG * Math.PI / 180;               // from straight down
+const CAM_DIST  = (GS.VIEW_H / T / 2) / Math.tan(FOV / 2 * Math.PI / 180) / ZOOM;   // ~18 tiles tall at zoom 1
 
 
 // ---- Renderer, scene, camera -------------------------------------------------
@@ -45,6 +54,15 @@ const TORCH_HEIGHT = 4.5;
 const TORCH_RANGE  = 12;   // tiles (3D distance): roughly where the 2D vignette went dark
 const torch = new THREE.PointLight(0xffd8a0, TORCH_I, TORCH_RANGE, 2);
 scene.add(torch);
+const TORCH_CALM   = new THREE.Color(0xffd8a0);
+const TORCH_DANGER = new THREE.Color(0xffb898);   // a touch redder while the boss hunts you
+
+// Boss lighting: a slow red pulse filling the boss room, and a red glow that
+// travels with the boss, so you see it coming before the torch reaches it.
+// Both always exist (intensity 0 when not needed) to keep the light count fixed.
+const bossRoomLight = new THREE.PointLight(0xff2010, 0, 9, 1.6);
+const bossLight     = new THREE.PointLight(0xff3018, 0, 4.5, 2);
+scene.add(bossRoomLight, bossLight);
 
 // Browsers can drop the WebGL context (e.g. after backgrounding on iPad); let it restore
 canvas.addEventListener('webglcontextlost', e => e.preventDefault());
@@ -114,6 +132,13 @@ function buildDungeon() {
   dungeon.add(wallMesh, floorMesh);
   scene.add(dungeon);
   builtVersion = GS.map.version;
+
+  // Centre the red light in the boss room, a little below the wall tops
+  const bossRoom = (GS.map.enemyRooms || []).find(r => r.isBoss);
+  if (bossRoom) {
+    const r = bossRoom.room;
+    bossRoomLight.position.set((r.c1 + r.c2 + 1) / 2, WALL_H * 0.9, (r.r1 + r.r2 + 1) / 2);
+  }
 }
 
 // ---- Actors -----------------------------------------------------------------
@@ -255,7 +280,8 @@ function syncEnemies() {
     flash(obj, e.hitFlash > 0);
 
     // Eyes burn brighter once it has spotted you; a charging orc flushes green
-    for (const m of obj.userData.eyes) m.emissiveIntensity = e.state === 'aggro' ? 2.5 : 1.0;
+    const glow = e.state === 'aggro' ? (e.boss ? 5 : 2.5) : (e.boss ? 2 : 1);
+    for (const m of obj.userData.eyes) m.emissiveIntensity = glow;
     if (e.type === 'orc' && e.hitFlash <= 0) {
       obj.userData.torso.emissive.setHex(e.chargeTimer > 0 ? 0x1a4000 : 0x000000);
     }
@@ -300,6 +326,27 @@ function syncCamera() {
   torch.intensity = TORCH_I * f;
 }
 
+let bossT = 0;
+
+function syncBossLights() {
+  bossT++;
+  const boss    = GS.enemies.find(e => e.boss);
+  const hunting = !!boss && boss.state === 'aggro';
+
+  // Room glow: slow, uneven pulse; it dies with the boss
+  bossRoomLight.intensity = boss ? 9 + 3 * Math.sin(bossT * 0.03) + 1.5 * Math.sin(bossT * 0.071) : 0;
+
+  // Travelling glow: brighter once the boss has spotted you
+  if (boss) {
+    bossLight.position.set(boss.x / T, 1.4, boss.y / T);
+    bossLight.intensity = (hunting ? 6 : 2.5) * (1 + 0.15 * Math.sin(bossT * 0.2));
+  } else {
+    bossLight.intensity = 0;
+  }
+
+  torch.color.lerp(hunting ? TORCH_DANGER : TORCH_CALM, 0.03);
+}
+
 // ---- Debug readout (/3d/?debug) ---------------------------------------------
 
 const DEBUG   = /[?&]debug\b/.test(location.search);
@@ -317,7 +364,7 @@ function drawDebug(ctx) {
     const info = renderer.info.render;
     fpsText   = Math.round(fpsFrames * 1000 / (now - fpsSince)) + ' fps  ' +
                 info.calls + ' draws  ' + Math.round(info.triangles / 1000) + 'k tris  ' +
-                'dpr ' + renderer.getPixelRatio();
+                'dpr ' + renderer.getPixelRatio() + '  tilt ' + TILT_DEG + ' fov ' + FOV + ' zoom ' + ZOOM;
     fpsFrames = 0;
     fpsSince  = now;
   }
@@ -346,6 +393,7 @@ GS.toScreen = function (x, y) {
 GS.render = function (ctx) {
   if (builtVersion !== GS.map.version) buildDungeon();
   syncCamera();
+  syncBossLights();
   syncPlayer();
   syncEnemies();
   effects.update();

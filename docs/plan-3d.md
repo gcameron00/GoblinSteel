@@ -121,6 +121,8 @@ A perspective camera high above the player, looking down with a small tilt (abou
 - **Boss lighting:** the boss room gets a dim red light, and the boss's eyes glow (emissive).
 - **Camera tuning:** height, tilt and FOV adjusted on the iPad for readability.
 
+> *As built:* screenshake needed no new work, since the 3D camera has used `GS.fx.shakeX/Y` since Step 0. The boss room has a slow, uneven red pulse (a light fixed at the room's centre), and the boss carries its own red glow, brighter once it's hunting you, so you see it coming. The torch shifts slightly redder while the boss hunts. Boss eyes burn brighter than other enemies'. The camera can be tuned from the address bar (`/3d/?tilt=25&zoom=1.3&fov=40`, also shown in the `?debug` readout) so values can be tried on the iPad without code changes; the defaults stay at tilt 12°, FOV 35°, zoom 1. Point lights now total eight (torch, 3 bolts, 2 potions, 2 boss).
+
 ---
 
 ## Step 5 — Performance pass (iPad)
